@@ -3,6 +3,7 @@ import { RefreshCw, Smartphone, Workflow } from 'lucide-react';
 import {
   ACCOUNT_PAGE_SIZE,
   AccountManagementDrawerView,
+  AccountPhoneProbeToolbox,
   ToastMessage,
   WorkflowStatusPanel,
   WorkspaceTabbedPanel,
@@ -30,9 +31,8 @@ import {
 } from './wa-api';
 import { WaAccountAdd } from './wa-account-add';
 import { waAccountDetailTabs, type WaAccountActionResult } from './wa-account-detail';
-import { WaPhoneSMSProbeForm } from './wa-phone-sms-probe-form';
 import { WaResultPanel } from './wa-result-panel';
-import type { WaResolvedPhone } from './wa-utils';
+import { resolveWaPhoneTarget, type WaResolvedPhone } from './wa-utils';
 
 type WaTab = 'accounts' | 'toolbox' | 'workflows';
 
@@ -65,8 +65,22 @@ export function WaPage() {
 }
 
 function ToolboxTab(props: { result: WaWorkflowResponse | null; phone: string; busy: boolean; onCheck: (target: WaResolvedPhone) => void | Promise<void>; onError: (message: unknown) => void }) {
-  const hasResult = props.busy || props.result || props.phone;
-  return <div className="p-3"><WaPhoneSMSProbeForm disabled={props.busy} resultSlot={hasResult ? <WaResultPanel title="探测结果" phone={props.phone} result={props.result} loading={props.busy} /> : undefined} onCheck={props.onCheck} onError={props.onError} /></div>;
+  return (
+    <AccountPhoneProbeToolbox<WaResolvedPhone, WaWorkflowResponse>
+      title="手机号/SMS 探测"
+      subject={props.phone}
+      result={props.result}
+      busy={props.busy}
+      emptyResultText="结果：注册 / SMS / Blocked"
+      countryPlaceholder="+992"
+      phonePlaceholder="007886231"
+      actionLabel="探测手机号和 SMS 状态"
+      resolve={(values) => resolveWaPhoneTarget(values.phone, values.country_calling_code)}
+      renderResult={({ subject, result, loading }) => <WaResultPanel title="探测结果" phone={subject} result={result} loading={loading} />}
+      onSubmit={props.onCheck}
+      onError={props.onError}
+    />
+  );
 }
 
 function WaAccountsTab(props: { controller: AccountManagementController<WaAccountProjection, ListWAAccountsResponse>; onAccountAdded: () => void | Promise<void>; onActionDone: (message: string) => void; onError: (message: unknown) => void }) {
