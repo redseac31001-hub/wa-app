@@ -55,7 +55,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1440,
+        1920,
         -140
       ]
     },
@@ -66,7 +66,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, phone: $('Normalize Registration Input').first().json.phone, wa_account_id: ($json.body || $json).wa_account_id, client_profile_id: ($json.body || $json).client_profile_id, protocol_profile_id: ($json.body || $json).protocol_profile_id, proxy: $('Run WA US Dynamic IP').first().json, proxy_url: $('Run WA US Dynamic IP').first().json.proxy_url || '' } }}",
+        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, phone: $('Normalize Registration Input').first().json.phone, wa_account_id: ($json.body || $json).wa_account_id, client_profile_id: ($json.body || $json).client_profile_id, protocol_profile_id: ($json.body || $json).protocol_profile_id, proxy: $('Normalize Registration Proxy').first().json, proxy_url: $('Normalize Registration Proxy').first().json.proxy_url || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -81,7 +81,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1680,
+        2160,
         -140
       ]
     },
@@ -115,7 +115,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1920,
+        2400,
         -140
       ]
     },
@@ -219,7 +219,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, verification_request_id: (($('Request SMS OTP').first().json.body || $('Request SMS OTP').first().json).verification_request_id || ''), code: $('Normalize OTP Event').first().json.verification_code, proxy: $('Run WA US Dynamic IP').first().json, proxy_url: $('Run WA US Dynamic IP').first().json.proxy_url || '' } }}",
+        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, verification_request_id: (($('Request SMS OTP').first().json.body || $('Request SMS OTP').first().json).verification_request_id || ''), code: $('Normalize OTP Event').first().json.verification_code, proxy: $('Normalize Registration Proxy').first().json, proxy_url: $('Normalize Registration Proxy').first().json.proxy_url || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -267,7 +267,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "\nconst persist = $input.first().json.body || $input.first().json || {};\nconst submit = $('Submit SMS OTP').first().json.body || $('Submit SMS OTP').first().json || {};\nconst registration = submit.registration || submit;\nconst loginState = persist.login_state || submit.login_state || {};\nconst submitStatus = registration.status || submit.status || '';\nconst submitOK = submit.success === true || ['REGISTRATION_STATUS_REGISTERED','REGISTERED','registered'].includes(submitStatus);\nconst persistOK = persist.success === true && ['LOGIN_STATE_STATUS_ACTIVE','ACTIVE','active'].includes(loginState.status || persist.status || '');\nconst ok = submitOK && persistOK;\nconst status = ok ? 'REGISTERED' : (submitOK ? 'LOGIN_STATE_PERSIST_FAILED' : 'OTP_SUBMIT_FAILED');\nconst message = ok ? '' : (persist.error_message || submit.error_message || persist.error?.message || submit.error?.message || 'registration login state is not active');\nconst runtimeProxy = $('Run WA US Dynamic IP').first().json || {};\nconst proxy = { proxy_mode: runtimeProxy.proxy_mode || 'US_RANDOM_DYNAMIC_IP', country_code: runtimeProxy.country_code || 'US' };\nreturn [{ json: { success: ok, status, error_message: message, phone: $('Normalize Registration Input').first().json.phone, wa_account_id: (($('Commit Fingerprint To Profile').first().json.body || $('Commit Fingerprint To Profile').first().json).wa_account_id || ''), client_profile_id: (($('Commit Fingerprint To Profile').first().json.body || $('Commit Fingerprint To Profile').first().json).client_profile_id || ''), registration, login_state: loginState, proxy } }];\n"
+        "jsCode": "\nconst persist = $input.first().json.body || $input.first().json || {};\nconst submit = $('Submit SMS OTP').first().json.body || $('Submit SMS OTP').first().json || {};\nconst registration = submit.registration || submit;\nconst loginState = persist.login_state || submit.login_state || {};\nconst submitStatus = registration.status || submit.status || '';\nconst submitOK = submit.success === true || ['REGISTRATION_STATUS_REGISTERED','REGISTERED','registered'].includes(submitStatus);\nconst persistOK = persist.success === true && ['LOGIN_STATE_STATUS_ACTIVE','ACTIVE','active'].includes(loginState.status || persist.status || '');\nconst ok = submitOK && persistOK;\nconst status = ok ? 'REGISTERED' : (submitOK ? 'LOGIN_STATE_PERSIST_FAILED' : 'OTP_SUBMIT_FAILED');\nconst message = ok ? '' : (persist.error_message || submit.error_message || persist.error?.message || submit.error?.message || 'registration login state is not active');\nconst runtimeProxy = $('Normalize Registration Proxy').first().json || {};\nconst proxy = { proxy_mode: runtimeProxy.proxy_mode || 'US_RANDOM_DYNAMIC_IP', country_code: runtimeProxy.country_code || 'US' };\nreturn [{ json: { success: ok, status, error_message: message, phone: $('Normalize Registration Input').first().json.phone, wa_account_id: (($('Commit Fingerprint To Profile').first().json.body || $('Commit Fingerprint To Profile').first().json).wa_account_id || ''), client_profile_id: (($('Commit Fingerprint To Profile').first().json.body || $('Commit Fingerprint To Profile').first().json).client_profile_id || ''), registration, login_state: loginState, proxy } }];\n"
       },
       "id": "wa-register-success",
       "name": "Build Registration Success",
@@ -358,7 +358,7 @@
       "typeVersion": 1,
       "position": [
         960,
-        -140
+        80
       ]
     },
     {
@@ -391,14 +391,14 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1080,
-        40
+        1440,
+        -140
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "\nconst proxy = $('Run WA US Dynamic IP').first().json || {};\nreturn [{ json: { success: false, status: 'DYNAMIC_IP_UNAVAILABLE', error_message: proxy.error_message || 'dynamic IP unavailable', phone: $('Normalize Registration Input').first().json.phone, proxy: { proxy_mode: proxy.proxy_mode || 'US_RANDOM_DYNAMIC_IP', country_code: proxy.country_code || 'US' } } }];\n"
+        "jsCode": "\nconst proxy = $('Normalize Registration Proxy').first().json || {};\nreturn [{ json: { success: false, status: 'DYNAMIC_IP_UNAVAILABLE', error_message: proxy.error_message || 'dynamic IP unavailable', phone: $('Normalize Registration Input').first().json.phone, proxy: { proxy_mode: proxy.proxy_mode || 'US_RANDOM_DYNAMIC_IP', country_code: proxy.country_code || 'US' } } }];\n"
       },
       "id": "wa-register-dynamic-ip-failure",
       "name": "Build Dynamic IP Failure",
@@ -416,7 +416,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { account_id: $('Run WA US Dynamic IP').first().json.account_id || '' } }}",
+        "jsonBody": "={{ { account_id: $('Normalize Registration Proxy').first().json.account_id || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -442,7 +442,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { account_id: $('Run WA US Dynamic IP').first().json.account_id || '' } }}",
+        "jsonBody": "={{ { account_id: $('Normalize Registration Proxy').first().json.account_id || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -468,7 +468,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { account_id: $('Run WA US Dynamic IP').first().json.account_id || '' } }}",
+        "jsonBody": "={{ { account_id: $('Normalize Registration Proxy').first().json.account_id || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -494,7 +494,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { account_id: $('Run WA US Dynamic IP').first().json.account_id || '' } }}",
+        "jsonBody": "={{ { account_id: $('Normalize Registration Proxy').first().json.account_id || '' } }}",
         "options": {
           "response": {
             "response": {
@@ -534,7 +534,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, phone: $('Normalize Registration Input').first().json.phone, persist: false, proxy: $('Run WA US Dynamic IP').first().json } }}",
+        "jsonBody": "={{ { workspace_id: $('Normalize Registration Input').first().json.workspace_id, job_id: $('Normalize Registration Input').first().json.job_id, phone: $('Normalize Registration Input').first().json.phone, persist: false, proxy: $('Normalize Registration Proxy').first().json } }}",
         "options": {
           "response": {
             "response": {
@@ -549,7 +549,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1200,
+        1680,
         -140
       ]
     },
@@ -630,6 +630,68 @@
         3920,
         -360
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "registration-proxy-provided",
+              "leftValue": "={{ Boolean($('Normalize Registration Input').first().json.proxy_url || $('Normalize Registration Input').first().json.proxy_state_json || $('Normalize Registration Input').first().json.state_json) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wa-register-proxy-provided",
+      "name": "Registration Proxy Provided?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\nconst input = $('Normalize Registration Input').first().json || {};\nconst rawState = String(input.proxy_state_json || input.state_json || '').trim();\nlet state = {};\nif (rawState) {\n  try { state = JSON.parse(rawState); } catch (_) { state = {}; }\n}\nconst proxyURL = String(input.proxy_url || state._gopay_proxy || state.proxy_url || state.proxy?.proxy_url || '').trim();\nreturn [{ json: {\n  accepted: Boolean(proxyURL || rawState),\n  proxy_mode: 'PROVIDED_DYNAMIC_IP',\n  country_code: String(state._gopay_country_code || state._proxy_runtime_exit_country_code || 'US').trim() || 'US',\n  proxy_url: proxyURL,\n  proxy_state_json: rawState,\n  state_json: rawState,\n  account_id: '',\n  external_release_owner: true,\n} }];\n"
+      },
+      "id": "wa-register-use-provided-proxy",
+      "name": "Use Provided Registration Proxy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\nconst value = $input.first().json || {};\nreturn [{ json: {\n  ...value,\n  accepted: value.accepted === true || Boolean(value.proxy_url || value.proxy_state_json || value.state_json),\n  proxy_url: value.proxy_url || '',\n  proxy_state_json: value.proxy_state_json || value.state_json || '',\n  state_json: value.state_json || value.proxy_state_json || '',\n  account_id: value.external_release_owner === true ? '' : (value.account_id || ''),\n} }];\n"
+      },
+      "id": "wa-register-normalize-registration-proxy",
+      "name": "Normalize Registration Proxy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -140
+      ]
     }
   ],
   "connections": {
@@ -648,7 +710,7 @@
       "main": [
         [
           {
-            "node": "Run WA US Dynamic IP",
+            "node": "Registration Proxy Provided?",
             "type": "main",
             "index": 0
           }
@@ -805,7 +867,7 @@
       "main": [
         [
           {
-            "node": "Dynamic IP Ready?",
+            "node": "Normalize Registration Proxy",
             "type": "main",
             "index": 0
           }
@@ -923,6 +985,46 @@
         [
           {
             "node": "Return OTP Timeout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registration Proxy Provided?": {
+      "main": [
+        [
+          {
+            "node": "Use Provided Registration Proxy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run WA US Dynamic IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Provided Registration Proxy": {
+      "main": [
+        [
+          {
+            "node": "Normalize Registration Proxy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Registration Proxy": {
+      "main": [
+        [
+          {
+            "node": "Dynamic IP Ready?",
             "type": "main",
             "index": 0
           }
