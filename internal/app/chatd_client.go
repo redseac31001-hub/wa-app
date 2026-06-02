@@ -112,10 +112,10 @@ func (c *chatdClient) receiveBatch(ctx context.Context, state nativeState, input
 			_ = transport.sendNode(ack)
 		}
 		encs := iterEncPayloads(node)
-		if len(encs) == 0 && node.Tag != "message" && node.Tag != "notification" {
-			continue
-		}
 		if len(encs) == 0 {
+			if node.Tag != "message" {
+				continue
+			}
 			sender := firstNonEmpty(node.Attrs["participant"], node.Attrs["from"])
 			payloadSummary := nodePayloadSummary(node)
 			messages = append(messages, &waappv1.InboundMessage{MessageId: inboundMessageID(input.WAAccountID, node.Attrs["id"], node.Tag, sender, payloadSummary), MessageSessionId: input.MessageSessionID, Kind: inboundKind(node.Tag), EncryptionState: waappv1.MessageEncryptionState_MESSAGE_ENCRYPTION_STATE_PLAINTEXT, AckStatus: ackStatusForNode(node), SenderRef: sender, PayloadRef: "node:" + redacted(payloadSummary), ReceivedAt: timestamppb.New(now)})
