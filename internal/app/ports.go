@@ -39,6 +39,7 @@ type Store interface {
 
 	SaveMessageSession(context.Context, *waappv1.MessageSession) error
 	GetMessageSession(context.Context, string) (*waappv1.MessageSession, error)
+	CloseStaleOpenMessageSessions(context.Context, time.Time) (int64, error)
 	SaveInboundMessages(context.Context, []*waappv1.InboundMessage) error
 	GetInboundMessage(context.Context, string) (*waappv1.InboundMessage, error)
 	ListPendingEncryptedInboundMessages(context.Context, string, string, int) ([]*waappv1.InboundMessage, error)

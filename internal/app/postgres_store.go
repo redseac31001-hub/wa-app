@@ -362,6 +362,22 @@ func (s *PostgresStore) GetMessageSession(ctx context.Context, id string) (*waap
 	return r.toProto(), nil
 }
 
+func (s *PostgresStore) CloseStaleOpenMessageSessions(ctx context.Context, before time.Time) (int64, error) {
+	if before.IsZero() {
+		return 0, nil
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE wa_message_sessions
+SET status=$1, closed_at=now()
+WHERE status=$2 AND COALESCE(last_seen_at, opened_at) < $3`,
+		waappv1.MessageSessionStatus_MESSAGE_SESSION_STATUS_CLOSED.String(),
+		waappv1.MessageSessionStatus_MESSAGE_SESSION_STATUS_OPEN.String(),
+		before.UTC())
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 func (s *PostgresStore) SaveInboundMessages(ctx context.Context, messages []*waappv1.InboundMessage) error {
 	if len(messages) == 0 {
 		return nil

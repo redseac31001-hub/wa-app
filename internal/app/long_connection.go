@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	longConnectionWaitTimeout  = 25 * time.Second
-	longConnectionMaxBackoff   = 30 * time.Second
-	longConnectionDecryptLimit = 100
+	longConnectionWaitTimeout          = 25 * time.Second
+	longConnectionMaxBackoff           = 30 * time.Second
+	longConnectionDecryptLimit         = 100
+	staleMessageSessionTTL             = 10 * time.Minute
+	staleMessageSessionCleanupInterval = 5 * time.Minute
 )
 
 type LongConnectionManager struct {
@@ -54,6 +56,8 @@ func (m *LongConnectionManager) Run(ctx context.Context) error {
 	if err := m.restore(rootCtx); err != nil {
 		return err
 	}
+	m.closeStaleMessageSessions(rootCtx)
+	go m.cleanupStaleMessageSessions(rootCtx)
 	<-rootCtx.Done()
 	return nil
 }
@@ -130,6 +134,33 @@ func (m *LongConnectionManager) restore(ctx context.Context) error {
 		m.Ensure(ctx, record.LoginState)
 	}
 	return nil
+}
+
+func (m *LongConnectionManager) cleanupStaleMessageSessions(ctx context.Context) {
+	ticker := time.NewTicker(staleMessageSessionCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m.closeStaleMessageSessions(ctx)
+		}
+	}
+}
+
+func (m *LongConnectionManager) closeStaleMessageSessions(ctx context.Context) {
+	if m == nil || m.server == nil || m.server.store == nil {
+		return
+	}
+	closed, err := m.server.store.CloseStaleOpenMessageSessions(ctx, m.server.clock.Now().Add(-staleMessageSessionTTL))
+	if err != nil {
+		log.Printf("WA stale message session cleanup failed: %v", sanitizeLogError(err))
+		return
+	}
+	if closed > 0 {
+		log.Printf("WA stale message session cleanup closed=%d", closed)
+	}
 }
 
 func (m *LongConnectionManager) runEntry(ctx context.Context, loginState *waappv1.LoginState, key string) {

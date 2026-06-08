@@ -319,6 +319,40 @@ func (s *SQLiteStore) GetMessageSession(ctx context.Context, id string) (*waappv
 	return session, s.loadPayload(ctx, "wa_sqlite_message_sessions", id, session, waappv1.WaErrorCode_WA_ERROR_CODE_MESSAGE_SESSION_NOT_FOUND, "message session not found")
 }
 
+func (s *SQLiteStore) CloseStaleOpenMessageSessions(ctx context.Context, before time.Time) (int64, error) {
+	if before.IsZero() {
+		return 0, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM wa_sqlite_message_sessions WHERE status=? AND updated_at<?`, waappv1.MessageSessionStatus_MESSAGE_SESSION_STATUS_OPEN.String(), sqliteTimeValue(before.UTC()))
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	sessions := []*waappv1.MessageSession{}
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			return 0, err
+		}
+		session := &waappv1.MessageSession{}
+		if err := sqliteUnmarshal([]byte(payload), session); err != nil {
+			return 0, err
+		}
+		session.Status = waappv1.MessageSessionStatus_MESSAGE_SESSION_STATUS_CLOSED
+		session.ClosedAt = timestamppb.New(time.Now().UTC())
+		sessions = append(sessions, session)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, session := range sessions {
+		if err := s.SaveMessageSession(ctx, session); err != nil {
+			return 0, err
+		}
+	}
+	return int64(len(sessions)), nil
+}
+
 func (s *SQLiteStore) SaveInboundMessages(ctx context.Context, messages []*waappv1.InboundMessage) error {
 	if len(messages) == 0 {
 		return nil
