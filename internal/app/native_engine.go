@@ -451,6 +451,7 @@ func (e *NativeEngine) DecryptMessage(ctx context.Context, input EngineDecryptIn
 			return EngineDecryptResult{Err: NewError(waappv1.WaErrorCode_WA_ERROR_CODE_DECRYPTION_FAILED, "native Signal message decryption failed", true)}
 		}
 		if commit {
+			_ = applyNativeAppStateKeys(&state, output.plaintext)
 			_ = e.saveState(ctx, input.ClientProfileID, state)
 		}
 		decryptedID := e.ids.NewID("wadec_")
@@ -461,6 +462,7 @@ func (e *NativeEngine) DecryptMessage(ctx context.Context, input EngineDecryptIn
 		}
 		msg := &waappv1.DecryptedMessage{DecryptedMessageId: decryptedID, MessageId: input.MessageID, Status: waappv1.DecryptionStatus_DECRYPTION_STATUS_DECRYPTED, PlaintextRef: "native-plain:" + decryptedID, PlaintextText: text, DecryptedAt: timestamppb.New(e.clock.Now())}
 		contactHints := nativeContactHints(output.plaintext)
+		contactHints = append(contactHints, nativeAppStateContactHints(&state, output.plaintext)...)
 		contactHints = append(contactHints, contactHintsFromNativePayloadMetadata(payload)...)
 		return EngineDecryptResult{DecryptedMessage: msg, Candidates: extractCandidates(input.MessageID, decryptedID, plain, input.IncludePlaintextText, e.clock.Now(), e.ids), ContactHints: dedupeWAContactHints(contactHints)}
 	}

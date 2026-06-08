@@ -135,3 +135,23 @@ Follow-up:
   - `interactive` side-list probes with `sidelist@addressing_mode=lid` and with app-observed plain `sidelist`.
 - `resolved_count` now counts contacts that actually gained a phone number, WA username, verified name, or non-fallback display name. Echoed `*@lid` rows without enrichment remain contacts but are not counted as resolved.
 - Active usync is only an enrichment path. Network/proxy/dial/timeout failures must not make the contacts UI fail: wa-app returns the existing local projection and `queried_count` while leaving `resolved_count` unchanged. Non-retryable protocol-shape errors remain surfaced so reverse regressions are still visible.
+
+## 2026-06-09 app-state mutation key and patch pass
+
+Reverse targets:
+
+- `X/C30285DcY.java`: main message `protocol_message = 12`.
+- `X/C30281DcU.java`: protocol message `app_state_sync_key_share = 7`.
+- `X/C30074DXy.java`: key-share wrapper has repeated `keys = 1`.
+- `X/DZB.java`: key record uses `key_id = 1`, `key_data = 2`.
+- `X/DYG.java`: key-id wrapper stores raw id bytes at field `1`.
+- `X/C30141DaD.java`: key-data wrapper stores `key_data = 1`, `fingerprint = 2`, `timestamp = 3`.
+- `sync.db` `crypto_info`: the app persists the same key material by `device_id`, `epoch`, `key_data`, `timestamp`, and `fingerprint`.
+- `X/C46023Kak.java` and `KmpSyncdDecryptor.java`: app-state mutation keys are derived with HKDF info `WhatsApp Mutation Keys` into five 32-byte segments. The first three are used for index MAC, value AES-CBC key, and value HMAC key.
+- `X/C44418JnT.java`: encrypted patch has `mutations = 2`, `key_id = 6`, and `client_debug_data = 9`.
+- `X/C44387Jmy.java`, `X/C44397Jn8.java`, `X/C44379Jmq.java`, `X/C44380Jmr.java`, `X/C44378Jmp.java`: a mutation carries `operation = 1`, `record = 2`; the record carries index blob, value blob, and key id.
+- `X/C44404JnF.java`: decrypted mutation value is the indexed sync-action wrapper (`index = 1`, `value = 2`, `padding = 3`, `version = 4`).
+- `X/C44405JnG.java` and `X/C44399JnA.java`: snapshot/fatal-recovery payloads provide `collection_name = 2` and repeated mutation records whose `value = 1` is already the indexed sync-action wrapper.
+- `X/DZK.java`: collection snapshots can be wrapped as `collection_snapshot = 1`, `is_compressed = 2`.
+
+Implementation note: wa-app now persists app-state sync keys into the native profile state when a decrypted protocol message carries a key share. Contact hint extraction also handles plaintext app-state snapshots and decryptable encrypted mutations. Mutation decryption validates the data HMAC, AES-CBC/PKCS#7 padding, and index HMAC before parsing `C2P0`; undecryptable or unauthenticated mutations are ignored rather than guessed. The implementation records only derived contact projections and never logs or returns raw key material, fingerprints, message bodies, phone numbers, JIDs, or app-state payload bytes.

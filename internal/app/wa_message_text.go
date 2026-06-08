@@ -921,6 +921,10 @@ func nativePrintableDisplayText(raw []byte) string {
 			continue
 		}
 		score := waPrintableSegmentScore(text)
+		if jsonText := waJSONDisplayText(text); jsonText != "" {
+			text = jsonText
+			score = waPrintableSegmentScore(text) + 500
+		}
 		if score > bestScore {
 			best = text
 			bestScore = score

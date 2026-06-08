@@ -38,6 +38,7 @@ type nativeState struct {
 	ChatConnection  nativeChatConnectionState       `json:"chat_connection,omitempty"`
 	ChatStatic      nativeCurveKeyPair              `json:"chat_static"`
 	Signal          nativeSignalState               `json:"signal"`
+	AppState        nativeAppState                  `json:"app_state,omitempty"`
 	ContactHints    []waContactHint                 `json:"contact_hints,omitempty"`
 	MessagePayloads map[string]nativeMessagePayload `json:"message_payloads,omitempty"`
 	MessagePlainRef map[string]string               `json:"message_plain_ref,omitempty"`
@@ -98,6 +99,17 @@ type nativeSignalSession struct {
 	AliceBaseKey         string                         `json:"alice_base_key,omitempty"`
 }
 
+type nativeAppState struct {
+	Keys map[string]nativeAppStateKey `json:"keys,omitempty"`
+}
+
+type nativeAppStateKey struct {
+	KeyID       string `json:"key_id"`
+	KeyData     string `json:"key_data"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Timestamp   int64  `json:"timestamp,omitempty"`
+}
+
 type nativeReceiverChain struct {
 	RatchetKey string `json:"ratchet_key"`
 	ChainKey   string `json:"chain_key"`
@@ -144,6 +156,9 @@ func (s *nativeState) ensureMaps() {
 	}
 	if s.Signal.Sessions == nil {
 		s.Signal.Sessions = map[string]nativeSignalSession{}
+	}
+	if s.AppState.Keys == nil {
+		s.AppState.Keys = map[string]nativeAppStateKey{}
 	}
 }
 
