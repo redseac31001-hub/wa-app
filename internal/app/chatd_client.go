@@ -61,6 +61,7 @@ type chatdSessionUpdate struct {
 	Endpoint           chatdEndpoint
 	ServerStaticPublic string
 	ContactHints       []waContactHint
+	PrivacyTokens      []nativePrivacyTokenUpdate
 }
 
 func chatdPhase(phase string, err error) error {
@@ -251,6 +252,7 @@ func (s *chatdSession) receiveBatch(input EngineMessageInput, now time.Time) ([]
 			update.RoutingInfo = nextRouting
 		}
 		update.ContactHints = dedupeWAContactHints(append(update.ContactHints, contactHintsFromChatdNode(node)...))
+		update.PrivacyTokens = dedupePrivacyTokenUpdates(append(update.PrivacyTokens, privacyTokenUpdatesFromChatdNode(node)...))
 		encs := iterEncPayloads(node)
 		if len(encs) == 0 {
 			if node.Tag != "message" {
@@ -299,6 +301,8 @@ func (c *chatdClient) checkLoginState(ctx context.Context, state nativeState, in
 	if nextRouting := routingInfoFromNode(node); nextRouting != "" {
 		update.RoutingInfo = nextRouting
 	}
+	update.ContactHints = dedupeWAContactHints(append(update.ContactHints, contactHintsFromChatdNode(node)...))
+	update.PrivacyTokens = dedupePrivacyTokenUpdates(append(update.PrivacyTokens, privacyTokenUpdatesFromChatdNode(node)...))
 	return update, nil
 }
 

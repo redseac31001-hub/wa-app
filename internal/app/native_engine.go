@@ -197,7 +197,7 @@ func (e *NativeEngine) CheckLoginState(ctx context.Context, input EngineLoginChe
 	}
 	client := newChatdClient(chatdConfigForState(proxyURL, state, timeout))
 	update, err := client.checkLoginState(ctx, state, input, defaultWAAppVersion)
-	if applyChatdConnectionState(&state, update) {
+	if applyChatdSessionUpdateState(&state, update) {
 		_ = e.saveState(ctx, input.ClientProfileID, state)
 	}
 	if err != nil {
@@ -276,7 +276,18 @@ func applyChatdReceiveState(state *nativeState, input EngineMessageInput, payloa
 		state.ContactHints = dedupeWAContactHints(append(state.ContactHints, update.ContactHints...))
 		changed = true
 	}
+	if applyChatdSessionUpdateState(state, update) {
+		changed = true
+	}
+	return changed
+}
+
+func applyChatdSessionUpdateState(state *nativeState, update chatdSessionUpdate) bool {
+	changed := false
 	if applyChatdConnectionState(state, update) {
+		changed = true
+	}
+	if applyPrivacyTokenUpdates(state, update.PrivacyTokens) {
 		changed = true
 	}
 	return changed

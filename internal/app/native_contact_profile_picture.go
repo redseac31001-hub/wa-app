@@ -65,7 +65,7 @@ func (e *NativeEngine) resolveContactProfilePicture(ctx context.Context, input E
 	cfg.MaxEndpoints = 1
 	client := newChatdClient(cfg)
 	location, update, err := e.contactProfilePictureLocationFromProfileIQ(operationCtx, client, state, input, jid)
-	if applyChatdConnectionState(&state, update) {
+	if applyChatdSessionUpdateState(&state, update) {
 		_ = e.saveState(ctx, input.ClientProfileID, state)
 	}
 	if err != nil {
@@ -94,10 +94,11 @@ func (e *NativeEngine) contactProfilePictureLocationFromProfileIQ(ctx context.Co
 	var lastUpdate chatdSessionUpdate
 	var lastErr error
 	for _, pictureType := range contactProfilePictureQueryTypes {
-		request := buildContactProfilePictureIQ(e.ids.NewID("wappic_"), target, pictureType, input.ContactPictureID)
+		trustedContactToken := trustedContactTokenForProfilePicture(state, target, input.ContactPNJID, e.clock.Now())
+		request := buildContactProfilePictureIQ(e.ids.NewID("wappic_"), target, pictureType, input.ContactPictureID, trustedContactToken)
 		response, update, err := client.sendIQ(ctx, state, input.RegisteredIdentityID, defaultWAAppVersion, request, "profile picture iq timed out")
 		lastUpdate = mergeContactProfilePictureUpdate(lastUpdate, update)
-		applyChatdConnectionState(&state, update)
+		applyChatdSessionUpdateState(&state, update)
 		if err != nil {
 			if !contactProfilePictureNotFound(err) {
 				return contactProfilePictureLocation{}, lastUpdate, err
@@ -138,6 +139,9 @@ func mergeContactProfilePictureUpdate(current chatdSessionUpdate, next chatdSess
 	if len(next.ContactHints) > 0 {
 		current.ContactHints = append(current.ContactHints, next.ContactHints...)
 	}
+	if len(next.PrivacyTokens) > 0 {
+		current.PrivacyTokens = dedupePrivacyTokenUpdates(append(current.PrivacyTokens, next.PrivacyTokens...))
+	}
 	return current
 }
 
@@ -152,7 +156,7 @@ func contactProfilePictureTarget(jid string, pnJID string) string {
 	return ""
 }
 
-func buildContactProfilePictureIQ(id string, jid string, pictureType string, pictureID string) chatdNode {
+func buildContactProfilePictureIQ(id string, jid string, pictureType string, pictureID string, trustedContactToken []byte) chatdNode {
 	pictureType = firstNonEmpty(pictureType, profilePictureTypeImage)
 	pictureAttrs := map[string]string{"type": pictureType}
 	if pictureType == profilePictureTypeImage {
@@ -161,13 +165,14 @@ func buildContactProfilePictureIQ(id string, jid string, pictureType string, pic
 	if requestID := contactProfilePictureRequestID(pictureID); requestID != "" {
 		pictureAttrs["id"] = requestID
 	}
+	picture := chatdNode{Tag: "picture", Attrs: pictureAttrs}
+	if len(trustedContactToken) > 0 {
+		picture.Content = []chatdNode{{Tag: "tctoken", Content: bytes.Clone(trustedContactToken)}}
+	}
 	return chatdNode{
-		Tag:   "iq",
-		Attrs: map[string]string{"xmlns": "w:profile:picture", "id": id, "to": "s.whatsapp.net", "type": "get", "target": normalizeWAJID(jid)},
-		Content: []chatdNode{{
-			Tag:   "picture",
-			Attrs: pictureAttrs,
-		}},
+		Tag:     "iq",
+		Attrs:   map[string]string{"xmlns": "w:profile:picture", "id": id, "to": "s.whatsapp.net", "type": "get", "target": normalizeWAJID(jid)},
+		Content: []chatdNode{picture},
 	}
 }
 

@@ -26,7 +26,7 @@ func (e *NativeEngine) ApplyAccountSettings(ctx context.Context, input EngineAcc
 	}
 	client := newChatdClient(chatdConfigForState(proxyURL, state, defaultAccountIQTimeout))
 	response, update, err := client.sendAccountIQ(ctx, state, input, defaultWAAppVersion, request)
-	if applyChatdConnectionState(&state, update) {
+	if applyChatdSessionUpdateState(&state, update) {
 		_ = e.saveState(ctx, input.ClientProfileID, state)
 	}
 	if err != nil {

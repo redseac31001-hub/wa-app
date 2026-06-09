@@ -57,7 +57,7 @@ func (e *NativeEngine) ResolveContacts(ctx context.Context, input EngineContactR
 			hadPictureQuery = hadPictureQuery || contactUsyncVariantIncludesPicture(variant)
 			request := buildContactUsyncIQ(e.ids.NewID("waiq_"), e.ids.NewID("sync_sid_query_"), contactUsyncRefsFromJIDs(batch), variant)
 			response, update, err := client.sendIQ(ctx, state, input.RegisteredIdentityID, defaultWAAppVersion, request, "contact usync iq timed out")
-			if applyChatdConnectionState(&state, update) {
+			if applyChatdSessionUpdateState(&state, update) {
 				_ = e.saveState(ctx, input.ClientProfileID, state)
 			}
 			if err != nil {
@@ -664,7 +664,7 @@ func (e *NativeEngine) resolveBusinessProfileContacts(ctx context.Context, clien
 	for _, ref := range refs {
 		for _, request := range buildBusinessProfileIQs(e.ids.NewID, ref) {
 			response, update, err := client.sendIQ(ctx, state, input.RegisteredIdentityID, defaultWAAppVersion, request, businessProfileTimeoutText)
-			if applyChatdConnectionState(&state, update) {
+			if applyChatdSessionUpdateState(&state, update) {
 				_ = e.saveState(ctx, input.ClientProfileID, state)
 			}
 			if err != nil {

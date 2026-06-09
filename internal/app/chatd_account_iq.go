@@ -50,6 +50,8 @@ func (c *chatdClient) sendIQ(ctx context.Context, state nativeState, registeredI
 		if nextRouting := routingInfoFromNode(node); nextRouting != "" {
 			update.RoutingInfo = nextRouting
 		}
+		update.ContactHints = dedupeWAContactHints(append(update.ContactHints, contactHintsFromChatdNode(node)...))
+		update.PrivacyTokens = dedupePrivacyTokenUpdates(append(update.PrivacyTokens, privacyTokenUpdatesFromChatdNode(node)...))
 		if node.Tag == "iq" && node.Attrs["id"] == requestID {
 			return node, update, nil
 		}

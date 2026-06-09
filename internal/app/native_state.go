@@ -41,6 +41,7 @@ type nativeState struct {
 	ContactHints    []waContactHint                 `json:"contact_hints,omitempty"`
 	MessagePayloads map[string]nativeMessagePayload `json:"message_payloads,omitempty"`
 	MessagePlainRef map[string]string               `json:"message_plain_ref,omitempty"`
+	PrivacyTokens   map[string]nativePrivacyToken   `json:"privacy_tokens,omitempty"`
 }
 
 type nativePhoneProfile struct {
@@ -129,6 +130,11 @@ type nativeMessagePayload struct {
 	Payload             string          `json:"payload"`
 }
 
+type nativePrivacyToken struct {
+	Token     string `json:"token"`
+	Timestamp int64  `json:"timestamp,omitempty"`
+}
+
 type nativeChatConnectionState struct {
 	LastHost           string `json:"last_host,omitempty"`
 	LastPort           int    `json:"last_port,omitempty"`
@@ -149,6 +155,9 @@ func (s *nativeState) ensureMaps() {
 	}
 	if s.MessagePlainRef == nil {
 		s.MessagePlainRef = map[string]string{}
+	}
+	if s.PrivacyTokens == nil {
+		s.PrivacyTokens = map[string]nativePrivacyToken{}
 	}
 	if s.Signal.RemoteIdentities == nil {
 		s.Signal.RemoteIdentities = map[string]string{}
