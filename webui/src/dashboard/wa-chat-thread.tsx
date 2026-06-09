@@ -1,16 +1,16 @@
 import { AssistantRuntimeProvider, MessagePrimitive, ThreadPrimitive, useExternalStoreRuntime, useMessage, type AppendMessage } from '@assistant-ui/react';
-import { CheckCheck, Copy, Loader2, Trash2 } from 'lucide-react';
+import { Copy, Loader2, Trash2 } from 'lucide-react';
 import { WhatsAppIcon } from './wa-brand-icon';
-import { isUnreadChatEvent, toAssistantMessage, type WaChatEvent, type WaChatMeta, type WaContact } from './wa-chat-model';
+import { toAssistantMessage, type WaChatEvent, type WaChatMeta, type WaContact } from './wa-chat-model';
 import { WaMessageContent } from './wa-message-content';
-import { Badge, Button } from './ui';
+import { Badge } from './ui';
 
-export function WaChatThread({ contact, events, loading, error, actionBusy, onMarkRead, onDeleteMessage }: { contact?: WaContact; events: WaChatEvent[]; loading: boolean; error?: string; actionBusy?: boolean; onMarkRead: () => void; onDeleteMessage: (messageID: string) => void }) {
+export function WaChatThread({ contact, events, loading, error, onDeleteMessage }: { contact?: WaContact; events: WaChatEvent[]; loading: boolean; error?: string; onDeleteMessage: (messageID: string) => void }) {
   const runtime = useExternalStoreRuntime<WaChatEvent>({ messages: events, convertMessage: toAssistantMessage, isDisabled: true, isLoading: loading, onNew: noopNewMessage });
   const title = contact?.title || '选择联系人';
   return (
     <section className="grid min-h-0 grid-rows-[auto_1fr_auto] overflow-hidden bg-card">
-      <ChatHeader contact={contact} loading={loading} events={events} actionBusy={actionBusy} onMarkRead={onMarkRead} />
+      <ChatHeader contact={contact} loading={loading} />
       <div className="h-full min-h-0">
         <AssistantRuntimeProvider runtime={runtime}>
           <ThreadPrimitive.Root className="h-full min-h-0">
@@ -26,8 +26,7 @@ export function WaChatThread({ contact, events, loading, error, actionBusy, onMa
   );
 }
 
-function ChatHeader({ contact, loading, events, actionBusy, onMarkRead }: { contact?: WaContact; loading: boolean; events: WaChatEvent[]; actionBusy?: boolean; onMarkRead: () => void }) {
-  const unreadCount = events.filter(isUnreadChatEvent).length;
+function ChatHeader({ contact, loading }: { contact?: WaContact; loading: boolean }) {
   const subtitle = contact?.subtitle || '请选择左侧联系人';
   return (
     <header className="flex h-16 items-center justify-between gap-3 border-b border-border px-5">
@@ -39,7 +38,6 @@ function ChatHeader({ contact, loading, events, actionBusy, onMarkRead }: { cont
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="ghost" disabled={!contact || actionBusy || unreadCount === 0} onClick={onMarkRead} title="标记已读"><CheckCheck size={15} />{unreadCount > 0 ? unreadCount : ''}</Button>
         {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </div>
     </header>

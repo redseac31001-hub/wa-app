@@ -4,12 +4,12 @@ import { Navigate } from 'react-router';
 import type { WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { deleteWaContact, deleteWaMessagesForMe, getWaContacts, getWaMessages, markWaMessagesRead, waAccountID, waKeys } from './wa-api';
 import { useWaContactAutoResolve } from './wa-contact-resolve';
-import { buildWaChatEvents, buildWaContacts, isUnreadChatEvent } from './wa-chat-model';
+import { buildWaChatEvents, buildWaContacts } from './wa-chat-model';
 import { WaChatThread } from './wa-chat-thread';
 import { WaContactList } from './wa-contact-list';
 import { waContactPath } from './wa-route-paths';
 
-type MarkReadInput = { messageIDs?: string[]; contactID?: string };
+type MarkReadInput = { contactID?: string };
 
 export function WaInbox({ account, contactID }: { account: WAAccount; contactID: string }) {
   const accountID = waAccountID(account);
@@ -28,7 +28,7 @@ export function WaInbox({ account, contactID }: { account: WAAccount; contactID:
   };
   const markReadMutation = useMutation({
     mutationFn: async (input: MarkReadInput) => {
-      const resp = await markWaMessagesRead(accountID, { accountMessageIds: input.messageIDs, contactRef: input.contactID });
+      const resp = await markWaMessagesRead(accountID, { contactRef: input.contactID });
       if (resp.error?.message) throw new Error(resp.error.message);
       return resp;
     },
@@ -55,14 +55,9 @@ export function WaInbox({ account, contactID }: { account: WAAccount; contactID:
   return (
     <section className="grid h-dvh min-h-0 md:grid-cols-[320px_minmax(0,1fr)]">
       <WaContactList accountID={accountID} contacts={contacts} selectedID={activeContactID} loading={contactsQuery.isLoading} error={error} deletingID={deleteContactMutation.variables} onOpenContact={(id) => openContact(id, markReadMutation.mutate)} onDeleteContact={(id) => deleteContact(id, deleteContactMutation.mutate)} />
-      <WaChatThread contact={activeContact} events={threadEvents} loading={messagesQuery.isFetching || contactsQuery.isFetching} error={error} actionBusy={markReadMutation.isPending || deleteMutation.isPending} onMarkRead={() => markThreadRead(threadEvents, markReadMutation.mutate)} onDeleteMessage={(messageID) => deleteMessageForMe(messageID, deleteMutation.mutate)} />
+      <WaChatThread contact={activeContact} events={threadEvents} loading={messagesQuery.isFetching || contactsQuery.isFetching} error={error} onDeleteMessage={(messageID) => deleteMessageForMe(messageID, deleteMutation.mutate)} />
     </section>
   );
-}
-
-function markThreadRead(events: ReturnType<typeof buildWaChatEvents>, mutate: (input: MarkReadInput) => void) {
-  const ids = events.filter(isUnreadChatEvent).map((event) => event.id);
-  if (ids.length > 0) mutate({ messageIDs: ids });
 }
 
 function openContact(contactID: string, mutate: (input: MarkReadInput) => void) {
