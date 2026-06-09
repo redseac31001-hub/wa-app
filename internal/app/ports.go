@@ -52,6 +52,12 @@ type Store interface {
 	SaveWAContacts(context.Context, []*waappv1.WAContact) error
 	GetWAContact(context.Context, string) (*waappv1.WAContact, error)
 	ListWAContacts(context.Context, string, string, int) ([]*waappv1.WAContact, string, error)
+	DeleteWAContact(context.Context, string, string, time.Time) (DeleteWAContactResult, error)
+}
+
+type DeleteWAContactResult struct {
+	Deleted             bool
+	DeletedMessageCount int
 }
 
 type RuntimeState interface {

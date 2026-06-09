@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	waappv1 "github.com/byte-v-forge/wa-app/gen/go/byte/v/forge/waapp/v1"
 	"github.com/jackc/pgx/v5"
@@ -48,7 +50,7 @@ ON CONFLICT (contact_id) DO UPDATE SET
 
 func (s *PostgresStore) GetWAContact(ctx context.Context, contactID string) (*waappv1.WAContact, error) {
 	var r contactRow
-	row := s.pool.QueryRow(ctx, contactSelectSQL+` WHERE contact_id=$1`, contactID)
+	row := s.pool.QueryRow(ctx, contactSelectSQL+` WHERE c.contact_id=$1`, contactID)
 	if err := scanContactRow(row, &r); err != nil {
 		return nil, notFound(err, waappv1.WaErrorCode_WA_ERROR_CODE_MESSAGE_NOT_FOUND, "WA contact not found")
 	}
@@ -83,19 +85,107 @@ func (s *PostgresStore) ListWAContacts(ctx context.Context, waAccountIDValue str
 	return items, nextCursor, nil
 }
 
-func (s *PostgresStore) queryContactPage(ctx context.Context, waAccountIDValue string, cursor keysetCursor, limit int) (pgx.Rows, error) {
-	if !hasKeysetCursor(cursor) {
-		return s.pool.Query(ctx, contactSelectSQL+` WHERE wa_account_id=$1 ORDER BY updated_at DESC, contact_id DESC LIMIT $2`, waAccountIDValue, limit)
+func (s *PostgresStore) DeleteWAContact(ctx context.Context, waAccountIDValue string, contactRef string, deletedAt time.Time) (DeleteWAContactResult, error) {
+	refs := contactDeleteRefs(contactRef)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return DeleteWAContactResult{}, err
 	}
-	return s.pool.Query(ctx, contactSelectSQL+` WHERE wa_account_id=$1 AND (updated_at, contact_id) < ($2, $3) ORDER BY updated_at DESC, contact_id DESC LIMIT $4`, waAccountIDValue, cursor.UpdatedAt, cursor.ID, limit)
+	defer func() { _ = tx.Rollback(ctx) }()
+	messageTag, err := tx.Exec(ctx, `UPDATE wa_inbound_messages m
+SET delete_status=$3, deleted_at=$4
+FROM wa_message_sessions ms
+WHERE ms.message_session_id=m.message_session_id
+  AND ms.wa_account_id=$1
+  AND COALESCE(NULLIF(m.contact_ref,''), m.sender_ref) = ANY($2)
+  AND COALESCE(m.delete_status,'MESSAGE_DELETE_STATUS_NOT_DELETED')<>'MESSAGE_DELETE_STATUS_DELETED_FOR_ME'`,
+		waAccountIDValue, refs, waappv1.MessageDeleteStatus_MESSAGE_DELETE_STATUS_DELETED_FOR_ME.String(), deletedAt.UTC())
+	if err != nil {
+		return DeleteWAContactResult{}, err
+	}
+	otpTag, err := tx.Exec(ctx, `DELETE FROM wa_otp_messages o
+WHERE o.wa_account_id=$1 AND (
+  o.source_party = ANY($2)
+  OR EXISTS (
+    SELECT 1
+    FROM wa_inbound_messages m
+    JOIN wa_message_sessions ms ON ms.message_session_id=m.message_session_id
+    WHERE m.message_id=o.message_id
+      AND ms.wa_account_id=$1
+      AND COALESCE(NULLIF(m.contact_ref,''), m.sender_ref) = ANY($2)
+      AND COALESCE(m.delete_status,'MESSAGE_DELETE_STATUS_NOT_DELETED')='MESSAGE_DELETE_STATUS_DELETED_FOR_ME'
+  )
+)`, waAccountIDValue, refs)
+	if err != nil {
+		return DeleteWAContactResult{}, err
+	}
+	contactTag, err := tx.Exec(ctx, `DELETE FROM wa_contacts
+WHERE wa_account_id=$1
+  AND (contact_id = ANY($2) OR jid = ANY($2) OR number = ANY($2))`,
+		waAccountIDValue, refs)
+	if err != nil {
+		return DeleteWAContactResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return DeleteWAContactResult{}, err
+	}
+	return DeleteWAContactResult{
+		Deleted:             messageTag.RowsAffected()+otpTag.RowsAffected()+contactTag.RowsAffected() > 0,
+		DeletedMessageCount: int(messageTag.RowsAffected()),
+	}, nil
 }
 
-const contactSelectSQL = `SELECT contact_id,wa_account_id,jid,number,display_name,wa_name,verified_name,profile_picture_id,kind,is_whatsapp_user,is_reachable,created_at,updated_at FROM wa_contacts`
+func (s *PostgresStore) queryContactPage(ctx context.Context, waAccountIDValue string, cursor keysetCursor, limit int) (pgx.Rows, error) {
+	if !hasKeysetCursor(cursor) {
+		return s.pool.Query(ctx, contactSelectSQL+` WHERE c.wa_account_id=$1 ORDER BY COALESCE(stats.last_message_at,c.updated_at) DESC, c.contact_id DESC LIMIT $2`, waAccountIDValue, limit)
+	}
+	return s.pool.Query(ctx, contactSelectSQL+` WHERE c.wa_account_id=$1 AND (COALESCE(stats.last_message_at,c.updated_at), c.contact_id) < ($2, $3) ORDER BY COALESCE(stats.last_message_at,c.updated_at) DESC, c.contact_id DESC LIMIT $4`, waAccountIDValue, cursor.UpdatedAt, cursor.ID, limit)
+}
+
+const contactSelectSQL = `SELECT c.contact_id,c.wa_account_id,c.jid,c.number,c.display_name,c.wa_name,c.verified_name,c.profile_picture_id,c.kind,c.is_whatsapp_user,c.is_reachable,c.created_at,c.updated_at,COALESCE(stats.message_count,0),COALESCE(stats.unread_count,0),stats.last_message_at
+FROM wa_contacts c
+LEFT JOIN LATERAL (
+  SELECT COUNT(*) AS message_count,
+         COUNT(*) FILTER (WHERE m.read_at IS NULL) AS unread_count,
+         MAX(m.received_at) AS last_message_at
+  FROM wa_inbound_messages m
+  JOIN wa_message_sessions ms ON ms.message_session_id=m.message_session_id
+  WHERE ms.wa_account_id=c.wa_account_id
+    AND m.kind='INBOUND_MESSAGE_KIND_MESSAGE'
+    AND COALESCE(NULLIF(m.contact_ref,''), m.sender_ref) IN (c.jid, c.number)
+    AND COALESCE(m.delete_status,'MESSAGE_DELETE_STATUS_NOT_DELETED')<>'MESSAGE_DELETE_STATUS_DELETED_FOR_ME'
+) stats ON true`
 
 type contactScanner interface {
 	Scan(...any) error
 }
 
 func scanContactRow(scanner contactScanner, r *contactRow) error {
-	return scanner.Scan(&r.id, &r.waAccountIDValue, &r.jid, &r.number, &r.displayName, &r.waName, &r.verifiedName, &r.profilePictureID, &r.kind, &r.isWhatsAppUser, &r.isReachable, &r.createdAt, &r.updatedAt)
+	return scanner.Scan(&r.id, &r.waAccountIDValue, &r.jid, &r.number, &r.displayName, &r.waName, &r.verifiedName, &r.profilePictureID, &r.kind, &r.isWhatsAppUser, &r.isReachable, &r.createdAt, &r.updatedAt, &r.messageCount, &r.unreadCount, &r.lastMessageAt)
+}
+
+func contactDeleteRefs(contactRef string) []string {
+	contactRef = strings.TrimSpace(contactRef)
+	numberRef := strings.TrimPrefix(contactRef, "+")
+	if strings.Contains(numberRef, "@") {
+		numberRef = contactRef
+	}
+	return uniqueStrings(contactRef, numberRef, normalizeWAJID(numberRef))
+}
+
+func uniqueStrings(values ...string) []string {
+	out := []string{}
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }

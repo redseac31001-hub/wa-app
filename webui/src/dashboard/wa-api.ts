@@ -1,5 +1,5 @@
 import type { RequestAccountEmailOtpResponse, SetAccountEmailResponse, SetTwoFactorAuthSettingsResponse, VerifyAccountEmailOtpResponse } from '../proto/byte/v/forge/waapp/v1/account_settings';
-import type { ListWAContactsResponse, ResolveWAContactsResponse } from '../proto/byte/v/forge/waapp/v1/contacts';
+import type { DeleteWAContactResponse, ListWAContactsResponse, ResolveWAContactsResponse } from '../proto/byte/v/forge/waapp/v1/contacts';
 import type { ListAccountOtpMessagesResponse } from '../proto/byte/v/forge/waapp/v1/extraction';
 import type { DeleteAccountMessagesResponse, GetLongConnectionStatusResponse, ListAccountMessagesResponse, LongConnectionState, MarkAccountMessagesReadResponse } from '../proto/byte/v/forge/waapp/v1/messaging';
 import type { DeleteWAAccountResponse, ListClientProfilesResponse, ListWAAccountsResponse, WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
@@ -15,7 +15,7 @@ export type WaAccountProjection = WAAccount;
 export const waKeys = {
   accounts: () => ['wa', 'accounts'] as const,
   profiles: (waAccountId: string) => ['wa', 'profiles', waAccountId] as const,
-  messages: (waAccountId: string) => ['wa', 'messages', waAccountId] as const,
+  messages: (waAccountId: string, contactRef = '') => ['wa', 'messages', waAccountId, contactRef] as const,
   contacts: (waAccountId: string) => ['wa', 'contacts', waAccountId] as const,
   contactResolve: (waAccountId: string) => ['wa', 'contacts', 'resolve', waAccountId] as const,
   otpMessages: (waAccountId: string) => ['wa', 'otp-messages', waAccountId] as const,
@@ -60,8 +60,8 @@ export function deleteWaMessagesForMe(waAccountId: string, accountMessageIds: st
   return api<DeleteAccountMessagesResponse>('/api/wa/messages/delete', { method: 'POST', body: JSON.stringify({ wa_account_id: waAccountId, account_message_ids: accountMessageIds, mode: 'for_me' }) });
 }
 
-export function getWaMessages(waAccountId: string, cursor = '') {
-  const params = new URLSearchParams({ wa_account_id: waAccountId, limit: '200', include_sensitive_text: 'true' });
+export function getWaMessages(waAccountId: string, contactRef: string, cursor = '') {
+  const params = new URLSearchParams({ wa_account_id: waAccountId, contact_ref: contactRef, limit: '100', include_sensitive_text: 'true' });
   if (cursor) params.set('cursor', cursor);
   return api<ListAccountMessagesResponse>(`/api/wa/messages?${params}`);
 }
@@ -74,6 +74,11 @@ export function getWaContacts(waAccountId: string, cursor = '') {
 
 export function resolveWaContacts(waAccountId: string, jids: string[]) {
   return api<ResolveWAContactsResponse>('/api/wa/contacts/resolve', { method: 'POST', body: JSON.stringify({ wa_account_id: waAccountId, jids, limit: jids.length }) });
+}
+
+export function deleteWaContact(waAccountId: string, contactID: string) {
+  const params = new URLSearchParams({ wa_account_id: waAccountId });
+  return api<DeleteWAContactResponse>(`/api/wa/contacts/${encodeURIComponent(contactID)}?${params}`, { method: 'DELETE' });
 }
 
 export async function deleteWaAccount(account: WAAccount | string) {

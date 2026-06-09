@@ -1,8 +1,6 @@
 import type { ThreadMessageLike } from '@assistant-ui/react';
 import type { WAContact as WAContactRecord } from '../proto/byte/v/forge/waapp/v1/contacts';
 import { WAContactKind } from '../proto/byte/v/forge/waapp/v1/contacts';
-import type { OtpMessage } from '../proto/byte/v/forge/waapp/v1/extraction';
-import { WaOtpSource } from '../proto/byte/v/forge/waapp/v1/extraction';
 import type { AccountMessage } from '../proto/byte/v/forge/waapp/v1/messaging';
 import { AccountMessageDirection, AccountMessageSource, InboundMessageKind, MessageEncryptionState } from '../proto/byte/v/forge/waapp/v1/messaging';
 
@@ -16,6 +14,7 @@ export type WaChatEvent = {
   copyText?: string;
   outgoing: boolean;
   read: boolean;
+  canMarkRead: boolean;
   readAt?: Date;
 };
 
@@ -25,20 +24,16 @@ export type WaContact = {
   subtitle: string;
   kind: WAContactKind;
   count: number;
+  unreadCount: number;
   lastAt?: Date;
   profilePictureURL?: string;
+  statsFromRecord?: boolean;
 };
 
-export type WaChatMeta = Pick<WaChatEvent, 'source' | 'sender' | 'copyText' | 'outgoing' | 'read' | 'readAt'> & { displayText: string };
+export type WaChatMeta = Pick<WaChatEvent, 'source' | 'sender' | 'copyText' | 'outgoing' | 'read' | 'canMarkRead' | 'readAt'> & { displayText: string };
 
-export function buildWaChatEvents(messages: AccountMessage[], otps: OtpMessage[]) {
-  const chatMessages = messages.filter((message) => message.kind === InboundMessageKind.INBOUND_MESSAGE_KIND_MESSAGE);
-  const events = [...chatMessages].sort(byMessageTime).map(messageEvent).filter(isKnownChatEvent);
-  const seenMessages = new Set(chatMessages.map((message) => message.account_message_id).filter(Boolean));
-  for (const item of [...otps].sort(byOtpTime)) {
-    if (!item.message_id || !seenMessages.has(item.message_id)) events.push(otpEvent(item));
-  }
-  return events.sort((a, b) => (a.at?.getTime() || 0) - (b.at?.getTime() || 0));
+export function buildWaChatEvents(messages: AccountMessage[]) {
+  return messages.filter((message) => message.kind === InboundMessageKind.INBOUND_MESSAGE_KIND_MESSAGE).sort(byMessageTime).map(messageEvent).filter(isKnownChatEvent);
 }
 
 export function buildWaContacts(events: WaChatEvent[], records: WAContactRecord[] = []) {
@@ -46,18 +41,21 @@ export function buildWaContacts(events: WaChatEvent[], records: WAContactRecord[
   for (const record of records) {
     const id = recordContactID(record);
     if (!id) continue;
-    contacts.set(id, { id, title: recordTitle(record), subtitle: recordSubtitle(record), kind: record.kind || WAContactKind.WA_CONTACT_KIND_UNSPECIFIED, count: 0, lastAt: parseDate(record.audit?.updated_at), profilePictureURL: contactProfilePictureURL(record) });
+    contacts.set(id, { id, title: recordTitle(record), subtitle: recordSubtitle(record), kind: record.kind || WAContactKind.WA_CONTACT_KIND_UNSPECIFIED, count: record.message_count || 0, unreadCount: record.unread_count || 0, lastAt: parseDate(record.last_message_at) || parseDate(record.audit?.updated_at), profilePictureURL: contactProfilePictureURL(record), statsFromRecord: true });
   }
   for (const event of events) {
     const current = contacts.get(event.contactID);
+    const keepRecordStats = Boolean(current?.statsFromRecord);
     contacts.set(event.contactID, {
       id: event.contactID,
       title: current?.title || event.sender,
       subtitle: current?.subtitle || event.source,
       kind: current?.kind || WAContactKind.WA_CONTACT_KIND_UNSPECIFIED,
-      count: (current?.count || 0) + 1,
+      count: keepRecordStats ? current?.count || 0 : (current?.count || 0) + 1,
+      unreadCount: keepRecordStats ? current?.unreadCount || 0 : (current?.unreadCount || 0) + (isUnreadChatEvent(event) ? 1 : 0),
       lastAt: newerDate(current?.lastAt, event.at),
       profilePictureURL: current?.profilePictureURL,
+      statsFromRecord: keepRecordStats,
     });
   }
   return [...contacts.values()].sort(compareContacts);
@@ -74,28 +72,13 @@ export function toAssistantMessage(event: WaChatEvent): ThreadMessageLike {
     content: event.text,
     createdAt: event.at,
     status: { type: 'complete', reason: 'stop' },
-    metadata: { custom: { source: event.source, sender: event.sender, copyText: event.copyText, outgoing: event.outgoing, displayText: event.text, read: event.read, readAt: event.readAt } satisfies WaChatMeta },
+    metadata: { custom: { source: event.source, sender: event.sender, copyText: event.copyText, outgoing: event.outgoing, displayText: event.text, read: event.read, canMarkRead: event.canMarkRead, readAt: event.readAt } satisfies WaChatMeta },
   };
 }
 
 export function formatChatTime(value?: Date) {
   if (!value) return '';
   return value.toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function otpEvent(item: OtpMessage): WaChatEvent {
-  const value = item.otp?.value || item.otp?.redacted_value || '-';
-  return {
-    id: item.otp_message_id || item.message_id || `${item.wa_account_id}-${item.source_party}-${item.received_at}`,
-    contactID: contactID(item),
-    text: value,
-    at: parseDate(item.received_at),
-    source: otpSourceLabel(item.source),
-    sender: sourcePartyLabel(item.source_party),
-    copyText: item.otp?.value || '',
-    outgoing: false,
-    read: false,
-  };
 }
 
 function messageEvent(item: AccountMessage): WaChatEvent {
@@ -110,17 +93,16 @@ function messageEvent(item: AccountMessage): WaChatEvent {
     copyText: item.text?.value || '',
     outgoing: item.direction === AccountMessageDirection.ACCOUNT_MESSAGE_DIRECTION_OUTBOUND,
     read: Boolean(item.read_at),
+    canMarkRead: item.direction !== AccountMessageDirection.ACCOUNT_MESSAGE_DIRECTION_OUTBOUND,
     readAt: parseDate(item.read_at),
   };
 }
 
-function contactID(item: OtpMessage) { return (item.source_party || '').trim() || 'unknown'; }
+export function isUnreadChatEvent(event: WaChatEvent) {
+  return event.canMarkRead && !event.outgoing && !event.read;
+}
 
 function newerDate(a?: Date, b?: Date) { return !a ? b : !b ? a : a.getTime() > b.getTime() ? a : b; }
-
-function byOtpTime(a: OtpMessage, b: OtpMessage) {
-  return (parseDate(a.received_at)?.getTime() || 0) - (parseDate(b.received_at)?.getTime() || 0);
-}
 
 function byMessageTime(a: AccountMessage, b: AccountMessage) {
   return (parseDate(a.received_at)?.getTime() || 0) - (parseDate(b.received_at)?.getTime() || 0);
@@ -162,13 +144,6 @@ function compareContacts(a: WaContact, b: WaContact) {
 
 function isKnownChatEvent(event: WaChatEvent) {
   return event.contactID.trim() !== '' && event.contactID !== 'unknown';
-}
-
-function otpSourceLabel(source?: WaOtpSource) {
-  if (source === WaOtpSource.WA_OTP_SOURCE_LONG_CONNECTION) return '长连接';
-  if (source === WaOtpSource.WA_OTP_SOURCE_IMPORTED_HISTORY) return '导入历史';
-  if (source === WaOtpSource.WA_OTP_SOURCE_AUTO_EXTRACTION) return '自动解析';
-  return '消息';
 }
 
 function messageSourceLabel(item: AccountMessage) {

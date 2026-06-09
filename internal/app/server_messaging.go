@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	waappv1 "github.com/byte-v-forge/wa-app/gen/go/byte/v/forge/waapp/v1"
@@ -112,6 +113,9 @@ func (s *Server) ListAccountMessages(ctx context.Context, req *waappv1.ListAccou
 	}
 	if _, err := s.getWAAccount(ctx, accountID); err != nil {
 		return &waappv1.ListAccountMessagesResponse{Error: ToProtoError(err)}, nil
+	}
+	if strings.TrimSpace(req.GetContactRef()) == "" {
+		return &waappv1.ListAccountMessagesResponse{}, nil
 	}
 	items, nextCursor, err := s.store.ListAccountMessages(ctx, accountID, req.GetContactRef(), req.GetCursor(), int(req.GetLimit()), req.GetIncludeSensitiveText())
 	if err != nil {

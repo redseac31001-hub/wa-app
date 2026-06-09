@@ -234,6 +234,7 @@ message MarkAccountMessagesReadResponse {
   int32 updated_count = 1;
   int32 receipt_sent_count = 2;
   WaError error = 3;
+  WaError receipt_error = 4;
 }
 
 message DeleteAccountMessagesRequest {

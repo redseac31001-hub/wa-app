@@ -352,7 +352,41 @@ func (s *dashboardHTTP) handleContactResource(w http.ResponseWriter, r *http.Req
 		s.handleContactProfilePicture(w, r)
 		return
 	}
+	if r.Method == http.MethodDelete {
+		s.handleDeleteContact(w, r)
+		return
+	}
 	http.NotFound(w, r)
+}
+
+func (s *dashboardHTTP) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
+	if s.service == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "wa-app service is not configured"})
+		return
+	}
+	contactID, ok := contactIDFromContactPath(r.URL.Path)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "contact id is required"})
+		return
+	}
+	accountID := r.URL.Query().Get("wa_account_id")
+	if accountID == "" && r.ContentLength != 0 {
+		payload, ok := readJSONPayload(w, r)
+		if !ok {
+			return
+		}
+		accountID = textField(payload, "wa_account_id")
+	}
+	resp, err := s.service.DeleteWAContact(r.Context(), &waappv1.DeleteWAContactRequest{
+		Context:     &waappv1.RequestContext{RequestId: newRequestID("wa-contact-delete")},
+		WaAccountId: accountID,
+		ContactRef:  contactID,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "delete WA contact failed"})
+		return
+	}
+	writeProtoJSON(w, http.StatusOK, resp)
 }
 
 func (s *dashboardHTTP) handleContactProfilePicture(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +425,15 @@ func (s *dashboardHTTP) handleContactProfilePicture(w http.ResponseWriter, r *ht
 
 func contactIDFromProfilePicturePath(path string) (string, bool) {
 	value := strings.TrimSuffix(strings.TrimPrefix(path, "/api/wa/contacts/"), "/profile-picture")
+	return parseContactIDPathValue(value)
+}
+
+func contactIDFromContactPath(path string) (string, bool) {
+	value := strings.TrimPrefix(path, "/api/wa/contacts/")
+	return parseContactIDPathValue(value)
+}
+
+func parseContactIDPathValue(value string) (string, bool) {
 	value = strings.Trim(value, "/")
 	if value == "" || strings.Contains(value, "/") {
 		return "", false

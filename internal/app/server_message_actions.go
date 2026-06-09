@@ -48,7 +48,7 @@ func (s *Server) MarkAccountMessagesRead(ctx context.Context, req *waappv1.MarkA
 	sent, sendErr := s.sendReadReceipts(ctx, req.GetContext(), accountID, records)
 	resp.ReceiptSentCount = int32(sent)
 	if sendErr != nil {
-		resp.Error = ToProtoError(sendErr)
+		resp.ReceiptError = ToProtoError(sendErr)
 	}
 	return resp, nil
 }

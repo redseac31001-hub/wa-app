@@ -5,7 +5,7 @@ import type { LongConnectionState } from '../proto/byte/v/forge/waapp/v1/messagi
 import type { WAAccount } from '../proto/byte/v/forge/waapp/v1/profile';
 import { waAccountID, waAccountTitle } from './wa-api';
 import { WhatsAppIcon } from './wa-brand-icon';
-import { toAssistantMessage, type WaChatEvent, type WaChatMeta, type WaContact } from './wa-chat-model';
+import { isUnreadChatEvent, toAssistantMessage, type WaChatEvent, type WaChatMeta, type WaContact } from './wa-chat-model';
 import { WaConnectionDot } from './wa-connection-dot';
 import { WaMessageContent } from './wa-message-content';
 import { waAccountPath } from './wa-route-paths';
@@ -33,7 +33,7 @@ export function WaChatThread({ account, connection, contact, events, loading, er
 }
 
 function ChatHeader({ account, contact, connection, loading, events, actionBusy, onMarkRead }: { account: WAAccount; contact?: WaContact; connection?: LongConnectionState; loading: boolean; events: WaChatEvent[]; actionBusy?: boolean; onMarkRead: () => void }) {
-  const unreadCount = events.filter((event) => !event.outgoing && !event.read).length;
+  const unreadCount = events.filter(isUnreadChatEvent).length;
   return (
     <header className="flex h-16 items-center justify-between gap-3 border-b border-border px-5">
       <div className="flex min-w-0 items-center gap-3">
@@ -57,11 +57,12 @@ function ChatHeader({ account, contact, connection, loading, events, actionBusy,
 function BubbleMessage({ onDeleteMessage }: { onDeleteMessage: (messageID: string) => void }) {
   const meta = useMessage((message) => message.metadata.custom as WaChatMeta | undefined);
   const outgoing = Boolean(meta?.outgoing);
+  const unread = Boolean(meta?.canMarkRead && !meta.read);
   const messageID = useMessage((message) => message.id);
   return (
     <MessagePrimitive.Root className={`flex w-full ${outgoing ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[min(640px,82%)] rounded-3xl border px-4 py-3 shadow-sm ${outgoing ? 'rounded-tr-md border-emerald-200 bg-emerald-50' : 'rounded-tl-md border-border bg-card'}`}>
-        <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><span>{meta?.source || '消息'}</span><span>·</span><MessageTime /></div>
+      <div className={`max-w-[min(640px,82%)] rounded-3xl border px-4 py-3 shadow-sm ${outgoing ? 'rounded-tr-md border-emerald-200 bg-emerald-50' : unread ? 'rounded-tl-md border-emerald-200 bg-emerald-50/70' : 'rounded-tl-md border-border bg-card'}`}>
+        <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground"><span>{meta?.source || '消息'}</span>{unread && <Badge>未读</Badge>}<span>·</span><MessageTime /></div>
         <div className="flex items-start gap-3">
           <WaMessageContent text={meta?.displayText || ''} />
           {meta?.copyText && <CopyButton text={meta.copyText} />}

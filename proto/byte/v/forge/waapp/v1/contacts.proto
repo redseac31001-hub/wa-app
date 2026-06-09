@@ -3,6 +3,7 @@ syntax = "proto3";
 package byte.v.forge.waapp.v1;
 
 import "byte/v/forge/waapp/v1/common.proto";
+import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "ByteVForge.WaApp.V1";
 option go_package = "github.com/byte-v-forge/wa-app/gen/go/byte/v/forge/waapp/v1;waappv1";
@@ -14,6 +15,7 @@ option php_namespace = "ByteVForge\\WaApp\\V1";
 service WaContactService {
   rpc ListWAContacts(ListWAContactsRequest) returns (ListWAContactsResponse);
   rpc ResolveWAContacts(ResolveWAContactsRequest) returns (ResolveWAContactsResponse);
+  rpc DeleteWAContact(DeleteWAContactRequest) returns (DeleteWAContactResponse);
 }
 
 enum WAContactKind {
@@ -38,6 +40,9 @@ message WAContact {
   bool is_reachable = 10;
   AuditStamp audit = 11;
   string profile_picture_id = 12;
+  int32 message_count = 13;
+  int32 unread_count = 14;
+  google.protobuf.Timestamp last_message_at = 15;
 }
 
 message ListWAContactsRequest {
@@ -65,4 +70,16 @@ message ResolveWAContactsResponse {
   int32 queried_count = 2;
   int32 resolved_count = 3;
   WaError error = 4;
+}
+
+message DeleteWAContactRequest {
+  RequestContext context = 1;
+  string wa_account_id = 2;
+  string contact_ref = 3;
+}
+
+message DeleteWAContactResponse {
+  bool deleted = 1;
+  int32 deleted_message_count = 2;
+  WaError error = 3;
 }

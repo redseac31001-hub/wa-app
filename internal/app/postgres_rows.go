@@ -423,6 +423,9 @@ type contactRow struct {
 	isReachable      bool
 	createdAt        time.Time
 	updatedAt        time.Time
+	messageCount     int64
+	unreadCount      int64
+	lastMessageAt    sql.NullTime
 }
 
 func (r contactRow) toProto() *waappv1.WAContact {
@@ -441,5 +444,8 @@ func (r contactRow) toProto() *waappv1.WAContact {
 		IsWhatsappUser:   r.isWhatsAppUser,
 		IsReachable:      r.isReachable,
 		Audit:            audit(r.createdAt, r.updatedAt),
+		MessageCount:     int32(r.messageCount),
+		UnreadCount:      int32(r.unreadCount),
+		LastMessageAt:    sqlTime(r.lastMessageAt),
 	}
 }
