@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultWAAppVersion   = "2.26.21.73"
+	defaultWAAppVersion   = "2.26.22.78"
 	defaultWAExistURL     = "https://y9yrsygcg6.execute-api.us-east-1.amazonaws.com/s/s?_=/v2/exist&"
 	defaultWACodeURL      = "https://y9yrsygcg6.execute-api.us-east-1.amazonaws.com/s/s?_=/v2/code&"
 	defaultWARegisterURL  = "https://y9yrsygcg6.execute-api.us-east-1.amazonaws.com/s/s?_=/v2/register&"
@@ -663,7 +663,7 @@ func (e *NativeEngine) loadState(ctx context.Context, clientProfileID string) (n
 	if err != nil {
 		return nativeState{}, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_PROFILE_NOT_FOUND, "native client profile state not found", false)
 	}
-	return state, nil
+	return withNativeAppVersion(state, defaultWAAppVersion), nil
 }
 
 func (e *NativeEngine) newState(phone *waappv1.PhoneTarget) (nativeState, error) {

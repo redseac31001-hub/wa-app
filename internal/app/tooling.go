@@ -143,10 +143,7 @@ func (e *NativeEngine) GeneratePhoneFingerprintProfile(ctx context.Context, req 
 	if phone.GetE164Number() == "" && phoneCC(phone) == "" {
 		return nil, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_VALIDATION_FAILED, "phone is required", false)
 	}
-	profile := buildNativePhoneProfile(phone)
-	if req.GetAppVersion() != "" {
-		profile.UserAgent = strings.Replace(profile.UserAgent, "WhatsApp/"+defaultWAAppVersion, "WhatsApp/"+req.GetAppVersion(), 1)
-	}
+	profile := buildNativePhoneProfile(phone, firstNonEmpty(req.GetAppVersion(), defaultWAAppVersion))
 	return phoneProfileToProto(phone, profile), nil
 }
 
@@ -196,7 +193,7 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 			base, raw := e.existParams(phone, state)
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
+			profile := buildNativePhoneProfile(phone, defaultWAAppVersion)
 			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), UserAgent: profile.UserAgent, Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
@@ -213,7 +210,7 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state)
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
+			profile := buildNativePhoneProfile(phone, defaultWAAppVersion)
 			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), UserAgent: profile.UserAgent, Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
@@ -227,7 +224,7 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 			base, raw := e.codeParams(phone, method, state)
 			params.merge(base, raw)
 		} else {
-			profile := buildNativePhoneProfile(phone)
+			profile := buildNativePhoneProfile(phone, defaultWAAppVersion)
 			state = nativeState{CC: phoneCC(phone), Phone: phoneNational(phone), UserAgent: profile.UserAgent, Profile: profile}
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)

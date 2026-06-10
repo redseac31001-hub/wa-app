@@ -247,7 +247,7 @@ func newNativeState(phone *waappv1.PhoneTarget, appVersion string) (nativeState,
 	if !verified {
 		return nativeState{}, fmt.Errorf("generated signed prekey signature did not verify")
 	}
-	profile := buildNativePhoneProfile(phone)
+	profile := buildNativePhoneProfile(phone, appVersion)
 	state := nativeState{
 		Schema:        nativeStateSchema,
 		CreatedAtUnix: time.Now().UTC().Unix(),
@@ -306,7 +306,7 @@ var nativeOperators = map[string][][2]string{
 
 var nativeRadioTypes = []string{"1", "2", "3", "9", "13", "20"}
 
-func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
+func buildNativePhoneProfile(phone *waappv1.PhoneTarget, appVersion string) nativePhoneProfile {
 	seed := int64(binary.BigEndian.Uint64(randomBytes(8)))
 	rng := mrand.New(mrand.NewSource(seed))
 	model := nativeDeviceModels[rng.Intn(len(nativeDeviceModels))]
@@ -352,7 +352,7 @@ func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
 		Schema:              "ctf-whatsapp-phone-profile/v1",
 		CreatedAtUnix:       time.Now().UTC().Unix(),
 		PhoneSHA256:         hex.EncodeToString(phoneHash[:]),
-		UserAgent:           fmt.Sprintf("WhatsApp/%s Android/%s Device/%s-%s", defaultWAAppVersion, model.Android, model.Vendor, model.Model),
+		UserAgent:           fmt.Sprintf("WhatsApp/%s Android/%s Device/%s-%s", firstNonEmpty(appVersion, defaultWAAppVersion), model.Android, model.Vendor, model.Model),
 		FDID:                newUUIDString(),
 		ExpID:               expID,
 		ExpIDUUID:           expIDUUID,
@@ -364,6 +364,35 @@ func buildNativePhoneProfile(phone *waappv1.PhoneTarget) nativePhoneProfile {
 		BackupTokenHex:      hex.EncodeToString(backup),
 		AdditionalMapFields: additionalFields,
 	}
+}
+
+func withNativeAppVersion(state nativeState, appVersion string) nativeState {
+	if strings.TrimSpace(appVersion) == "" {
+		appVersion = defaultWAAppVersion
+	}
+	state.UserAgent = withNativeUserAgentVersion(state.UserAgent, appVersion)
+	state.Profile.UserAgent = withNativeUserAgentVersion(state.Profile.UserAgent, appVersion)
+	if state.UserAgent == "" {
+		state.UserAgent = firstNonEmpty(state.Profile.UserAgent, nativeUserAgent(appVersion))
+	}
+	if state.Profile.UserAgent == "" {
+		state.Profile.UserAgent = state.UserAgent
+	}
+	return state
+}
+
+func withNativeUserAgentVersion(userAgent string, appVersion string) string {
+	if strings.TrimSpace(userAgent) == "" {
+		return ""
+	}
+	parts := strings.SplitN(userAgent, " ", 2)
+	if len(parts) == 0 || !strings.HasPrefix(parts[0], "WhatsApp/") {
+		return userAgent
+	}
+	if len(parts) == 1 {
+		return "WhatsApp/" + appVersion
+	}
+	return "WhatsApp/" + appVersion + " " + parts[1]
 }
 
 func uuidPair() (string, string) {
