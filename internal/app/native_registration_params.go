@@ -36,10 +36,7 @@ func (e *NativeEngine) existParams(phone *waappv1.PhoneTarget, state nativeState
 		params["token"] = token
 	}
 	raw := map[string]struct{}{"id": {}, "backup_token": {}}
-	for key, value := range existDeviceMap(state) {
-		params[key] = pctBytes([]byte(value))
-		raw[key] = struct{}{}
-	}
+	applyNativeRawParamMap(params, raw, existDeviceMap(state), true)
 	return params, raw
 }
 
@@ -48,6 +45,200 @@ func (e *NativeEngine) registrationToken(phone *waappv1.PhoneTarget, state nativ
 		return token
 	}
 	return deriveDefaultRegistrationToken(phoneNational(phone))
+}
+
+func registrationMethodName(method waappv1.VerificationDeliveryMethod, fallback string) string {
+	switch method {
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SMS:
+		return "sms"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_VOICE:
+		return "voice"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_IN_APP_MESSAGE,
+		waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_WA_OLD:
+		return "wa_old"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_FLASH:
+		return "flash"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_EMAIL_OTP:
+		return "email_otp"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_PASSKEY:
+		return "passkey"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH:
+		return "silent_auth"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH_TS43:
+		return "silent_auth_ts_43"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_RECAPTCHA:
+		return "recaptcha"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_OAUTH_EMAIL:
+		return "oauth_email"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_DISCOVERABLE_CREDENTIAL:
+		return "discoverable_credential"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_ACCOUNT_TRANSFER:
+		return "acc_tr"
+	case waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_STANDALONE_APP:
+		return "standalone"
+	default:
+		return fallback
+	}
+}
+
+func registrationMethodFromName(name string) waappv1.VerificationDeliveryMethod {
+	switch verificationMethodCode(name) {
+	case "send_sms", "sms":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SMS
+	case "voice":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_VOICE
+	case "flash":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_FLASH
+	case "wa_old":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_WA_OLD
+	case "email_otp":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_EMAIL_OTP
+	case "passkey":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_PASSKEY
+	case "silent_auth":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH
+	case "silent_auth_ts_43":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH_TS43
+	case "recaptcha":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_RECAPTCHA
+	case "oauth_email":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_OAUTH_EMAIL
+	case "discoverable_credential":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_DISCOVERABLE_CREDENTIAL
+	case "acc_tr":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_ACCOUNT_TRANSFER
+	case "standalone":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_STANDALONE_APP
+	default:
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_UNSPECIFIED
+	}
+}
+
+func applyNativeRawParamMap(params map[string]string, raw map[string]struct{}, values map[string]string, omitEmptyOperator bool) {
+	for key, value := range values {
+		if omitEmptyOperator && omitEmptyNativeOperatorField(key, value) {
+			continue
+		}
+		if key == "token" {
+			if value != "" {
+				params[key] = value
+			}
+			continue
+		}
+		params[key] = pctBytes([]byte(value))
+		raw[key] = struct{}{}
+	}
+}
+
+func codeDeviceMap(method string, state nativeState) map[string]string {
+	fields := nativeDeviceMapFields(state)
+	out := map[string]string{
+		"mistyped":                   "7",
+		"reason":                     "",
+		"hasav":                      "2",
+		"client_metrics":             nativeCodeClientMetrics(),
+		"education_screen_displayed": "false",
+		"prefer_sms_over_flash":      "false",
+		"_ge":                        `{"sb":false,"sv":false}`,
+		"network_radio_type":         fields["network_radio_type"],
+		"simnum":                     fields["simnum"],
+		"hasinrc":                    fields["hasinrc"],
+		"rc":                         fields["rc"],
+		"device_ram":                 fields["device_ram"],
+		"db":                         fields["db"],
+		"recaptcha":                  fields["recaptcha"],
+		"feo2_query_status":          fields["feo2_query_status"],
+		"network_operator_name":      fields["network_operator_name"],
+		"sim_operator_name":          fields["sim_operator_name"],
+		"mcc":                        fields["mcc"],
+		"mnc":                        fields["mnc"],
+		"sim_mcc":                    fields["sim_mcc"],
+		"sim_mnc":                    fields["sim_mnc"],
+	}
+	if method == "flash" {
+		out["prefer_sms_over_flash"] = "false"
+	}
+	return out
+}
+
+func registerDeviceMap(method string, state nativeState, token string) map[string]string {
+	fields := nativeDeviceMapFields(state)
+	return map[string]string{
+		"token":                      token,
+		"mistyped":                   "7",
+		"reason":                     "",
+		"hasav":                      "2",
+		"client_metrics":             nativeRegisterClientMetrics(method),
+		"entered":                    nativeCodeEntryMethod(method),
+		"mcc":                        fields["mcc"],
+		"mnc":                        fields["mnc"],
+		"sim_mcc":                    fields["sim_mcc"],
+		"sim_mnc":                    fields["sim_mnc"],
+		"network_operator_name":      fields["network_operator_name"],
+		"sim_operator_name":          fields["sim_operator_name"],
+		"network_radio_type":         fields["network_radio_type"],
+		"simnum":                     fields["simnum"],
+		"hasinrc":                    fields["hasinrc"],
+		"rc":                         fields["rc"],
+		"db":                         fields["db"],
+		"device_ram":                 fields["device_ram"],
+		"education_screen_displayed": "false",
+		"prefer_sms_over_flash":      "false",
+		"recaptcha":                  fields["recaptcha"],
+		"feo2_query_status":          fields["feo2_query_status"],
+	}
+}
+
+func nativeDeviceMapFields(state nativeState) map[string]string {
+	fields := map[string]string{}
+	for key, value := range state.Profile.AdditionalMapFields {
+		fields[key] = value
+	}
+	defaults := map[string]string{
+		"network_radio_type":    "1",
+		"simnum":                "0",
+		"hasinrc":               "1",
+		"rc":                    "0",
+		"device_ram":            "3.53",
+		"db":                    "1",
+		"recaptcha":             `{"stage":"ABPROP_DISABLED"}`,
+		"feo2_query_status":     "error_security_exception",
+		"network_operator_name": "",
+		"sim_operator_name":     "",
+		"mcc":                   "",
+		"mnc":                   "",
+		"sim_mcc":               "",
+		"sim_mnc":               "",
+	}
+	for key, value := range defaults {
+		fields[key] = firstNonEmpty(fields[key], value)
+	}
+	return fields
+}
+
+func nativeCodeClientMetrics() string {
+	return `{"attempts":1,"app_campaign_download_source":"google-play|unknown"}`
+}
+
+func nativeRegisterClientMetrics(method string) string {
+	body, err := json.Marshal(struct {
+		Attempts             int    `json:"attempts"`
+		VerifyMethod         string `json:"verify_method"`
+		WasActivatedFromStub bool   `json:"was_activated_from_stub"`
+	}{Attempts: 1, VerifyMethod: firstNonEmpty(method, "sms"), WasActivatedFromStub: false})
+	if err != nil {
+		return `{"attempts":1,"verify_method":"sms","was_activated_from_stub":false}`
+	}
+	return string(body)
+}
+
+func nativeCodeEntryMethod(method string) string {
+	switch method {
+	case "voice", "email_otp":
+		return "1"
+	default:
+		return "2"
+	}
 }
 
 const defaultRegistrationTokenHMACKeyHex = "44539b934347b6f12609296e69145b58309df94ed0a8a5a2d94078a8eaff87013e3d95a69644aa1b924646532c279f8bcd2855ab55f2c8bc1693adb7800c88ff"
@@ -72,7 +263,7 @@ func deriveDefaultRegistrationToken(phone string) string {
 }
 
 func existDeviceMap(state nativeState) map[string]string {
-	fields := state.Profile.AdditionalMapFields
+	fields := nativeDeviceMapFields(state)
 	return map[string]string{
 		"mistyped":                        "7",
 		"offline_ab":                      `{"exposure":[],"exp_hash":[],"metrics":{}}`,
@@ -82,18 +273,22 @@ func existDeviceMap(state nativeState) map[string]string {
 		"network_operator_name":           fields["network_operator_name"],
 		"sim_operator_name":               fields["sim_operator_name"],
 		"device_name":                     "HWTRT-Q",
-		"feo2_query_status":               "error_security_exception",
+		"feo2_query_status":               fields["feo2_query_status"],
 		"is_foa_fdid_app_installed":       "false",
-		"device_ram":                      "3.53",
+		"device_ram":                      fields["device_ram"],
 		"language_selector_time_spent":    "0",
 		"language_selector_clicked_count": "0",
-		"db":                              "1",
-		"recaptcha":                       `{"stage":"ABPROP_DISABLED"}`,
-		"network_radio_type":              "1",
-		"simnum":                          "0",
-		"hasinrc":                         "1",
-		"rc":                              "0",
+		"db":                              fields["db"],
+		"recaptcha":                       fields["recaptcha"],
+		"network_radio_type":              fields["network_radio_type"],
+		"simnum":                          fields["simnum"],
+		"hasinrc":                         fields["hasinrc"],
+		"rc":                              fields["rc"],
 		"_ge":                             `{"sb":false,"sv":false}`,
+		"mcc":                             fields["mcc"],
+		"mnc":                             fields["mnc"],
+		"sim_mcc":                         fields["sim_mcc"],
+		"sim_mnc":                         fields["sim_mnc"],
 	}
 }
 
@@ -278,6 +473,9 @@ func methodsFromStatuses(statuses []VerificationMethodStatus) []waappv1.Verifica
 	seen := map[waappv1.VerificationDeliveryMethod]struct{}{}
 	out := make([]waappv1.VerificationDeliveryMethod, 0, len(statuses))
 	for _, status := range statuses {
+		if status.Method == waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_UNSPECIFIED {
+			continue
+		}
 		if _, ok := seen[status.Method]; ok {
 			continue
 		}
@@ -289,10 +487,32 @@ func methodsFromStatuses(statuses []VerificationMethodStatus) []waappv1.Verifica
 
 func verificationMethod(name string) waappv1.VerificationDeliveryMethod {
 	switch verificationMethodCode(name) {
-	case "send_sms":
+	case "send_sms", "sms":
 		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SMS
-	case "wa_old", "email_otp":
-		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_IN_APP_MESSAGE
+	case "voice":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_VOICE
+	case "flash":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_FLASH
+	case "wa_old":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_WA_OLD
+	case "email_otp":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_EMAIL_OTP
+	case "passkey":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_PASSKEY
+	case "silent_auth":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH
+	case "silent_auth_ts_43":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SILENT_AUTH_TS43
+	case "recaptcha":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_RECAPTCHA
+	case "oauth_email":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_OAUTH_EMAIL
+	case "discoverable_credential":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_DISCOVERABLE_CREDENTIAL
+	case "acc_tr":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_ACCOUNT_TRANSFER
+	case "standalone":
+		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_STANDALONE_APP
 	default:
 		return waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_UNSPECIFIED
 	}
@@ -318,12 +538,32 @@ func verificationMethodStatuses(data map[string]any, methods []waappv1.Verificat
 
 func verificationMethodCode(name string) string {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "send_sms":
+	case "send_sms", "sms":
 		return "send_sms"
+	case "voice", "call", "phone_call":
+		return "voice"
+	case "flash":
+		return "flash"
 	case "wa_old", "wa-old", "old_wa":
 		return "wa_old"
 	case "email", "email_otp", "email-otp":
 		return "email_otp"
+	case "passkey":
+		return "passkey"
+	case "silent_auth", "silent-auth":
+		return "silent_auth"
+	case "silent_auth_ts_43", "silent-auth-ts-43", "silent_auth_ts43":
+		return "silent_auth_ts_43"
+	case "recaptcha":
+		return "recaptcha"
+	case "oauth_email", "oauth-email":
+		return "oauth_email"
+	case "discoverable_credential", "discoverable-credential":
+		return "discoverable_credential"
+	case "acc_tr", "account_transfer", "account-transfer":
+		return "acc_tr"
+	case "standalone", "acverify", "app":
+		return "standalone"
 	default:
 		return ""
 	}
@@ -365,9 +605,11 @@ func verificationMethodVisibleForProbe(data map[string]any, code string) bool {
 		return eligibility != 0 && eligibility != 4
 	case "send_sms":
 		return true
+	case "voice", "flash", "passkey", "silent_auth", "silent_auth_ts_43", "recaptcha", "oauth_email", "discoverable_credential", "acc_tr", "standalone":
+		return true
 	case "email_otp":
 		eligibility, ok := firstPresentJSONInt64(data["pref_email_otp_eligibility"], data["email_otp_eligible"])
-		return ok && eligibility == 1
+		return !ok || eligibility == 1
 	default:
 		return false
 	}
@@ -377,10 +619,22 @@ func verificationCodeCooldownSeconds(data map[string]any, code string) int64 {
 	switch code {
 	case "send_sms":
 		return firstJSONWaitSeconds(data["send_sms_wait"], data["send_sms_retry_after"], data["send_sms_retry_time"], data["pref_send_sms_wait_time"], data["EXTRA_SEND_SMS_RETRY_TIME"])
+	case "voice":
+		return firstJSONWaitSeconds(data["voice_wait"], data["voice_retry_after"], data["voice_retry_time"], data["pref_voice_wait_time"], data["EXTRA_VOICE_RETRY_TIME"])
+	case "flash":
+		return firstJSONWaitSeconds(data["flash_wait"], data["flash_retry_after"], data["flash_retry_time"], data["pref_flash_wait_time"], data["EXTRA_FLASH_RETRY_TIME"])
 	case "wa_old":
 		return firstJSONWaitSeconds(data["wa_old_wait"], data["wa_old_retry_time"], data["EXTRA_WA_OLD_RETRY_TIME"], data["pref_wa_old_wait_time"])
 	case "email_otp":
 		return firstJSONWaitSeconds(data["email_otp_wait"], data["email_otp_retry_time"], data["EXTRA_EMAIL_OTP_RETRY_TIME"], data["pref_email_otp_wait_time"])
+	case "silent_auth":
+		return firstJSONWaitSeconds(data["silent_auth_wait"], data["silent_auth_retry_time"], data["EXTRA_SILENT_AUTH_RETRY_TIME"], data["pref_silent_auth_wait_time"])
+	case "silent_auth_ts_43":
+		return firstJSONWaitSeconds(data["silent_auth_ts_43_wait"], data["silent_auth_ts_43_retry_time"], data["EXTRA_SILENT_AUTH_TS_43_RETRY_TIME"], data["pref_silent_auth_ts_43_wait_time"])
+	case "passkey":
+		return firstJSONWaitSeconds(data["passkey_wait"], data["passkey_retry_time"], data["EXTRA_PASSKEY_RETRY_TIME"], data["pref_passkey_wait_time"])
+	case "recaptcha":
+		return firstJSONWaitSeconds(data["recaptcha_wait"], data["recaptcha_retry_time"], data["EXTRA_RECAPTCHA_RETRY_TIME"], data["pref_recaptcha_wait_time"])
 	default:
 		return 0
 	}
@@ -390,10 +644,22 @@ func verificationCodeWaitExhausted(data map[string]any, code string) bool {
 	switch code {
 	case "send_sms":
 		return firstJSONWaitExhausted(data["send_sms_wait"], data["send_sms_retry_after"], data["send_sms_retry_time"], data["pref_send_sms_wait_time"], data["EXTRA_SEND_SMS_RETRY_TIME"])
+	case "voice":
+		return firstJSONWaitExhausted(data["voice_wait"], data["voice_retry_after"], data["voice_retry_time"], data["pref_voice_wait_time"], data["EXTRA_VOICE_RETRY_TIME"])
+	case "flash":
+		return firstJSONWaitExhausted(data["flash_wait"], data["flash_retry_after"], data["flash_retry_time"], data["pref_flash_wait_time"], data["EXTRA_FLASH_RETRY_TIME"])
 	case "wa_old":
 		return firstJSONWaitExhausted(data["wa_old_wait"], data["wa_old_retry_time"], data["EXTRA_WA_OLD_RETRY_TIME"], data["pref_wa_old_wait_time"])
 	case "email_otp":
 		return firstJSONWaitExhausted(data["email_otp_wait"], data["email_otp_retry_time"], data["EXTRA_EMAIL_OTP_RETRY_TIME"], data["pref_email_otp_wait_time"])
+	case "silent_auth":
+		return firstJSONWaitExhausted(data["silent_auth_wait"], data["silent_auth_retry_time"], data["EXTRA_SILENT_AUTH_RETRY_TIME"], data["pref_silent_auth_wait_time"])
+	case "silent_auth_ts_43":
+		return firstJSONWaitExhausted(data["silent_auth_ts_43_wait"], data["silent_auth_ts_43_retry_time"], data["EXTRA_SILENT_AUTH_TS_43_RETRY_TIME"], data["pref_silent_auth_ts_43_wait_time"])
+	case "passkey":
+		return firstJSONWaitExhausted(data["passkey_wait"], data["passkey_retry_time"], data["EXTRA_PASSKEY_RETRY_TIME"], data["pref_passkey_wait_time"])
+	case "recaptcha":
+		return firstJSONWaitExhausted(data["recaptcha_wait"], data["recaptcha_retry_time"], data["EXTRA_RECAPTCHA_RETRY_TIME"], data["pref_recaptcha_wait_time"])
 	default:
 		return false
 	}

@@ -34,7 +34,7 @@ func (s *Server) StartRegistration(ctx context.Context, payload map[string]any) 
 		return nil, err
 	}
 	phone := normalizePhone(phoneFromAction(basePayload))
-	codeResult, updatedState := runner.requestVerificationCodeWithState(ctx, EngineRegistrationInput{Phone: phone}, state)
+	codeResult, updatedState := runner.requestVerificationCodeWithState(ctx, EngineRegistrationInput{Phone: phone, DeliveryMethod: waappv1.VerificationDeliveryMethod_VERIFICATION_DELIVERY_METHOD_SMS}, state)
 	runner.CloseIdleConnections()
 	_ = gateway.server.runtime.DeleteTransientState(context.Background(), fingerprintRef)
 	if !verificationCodeRequestAccepted(codeResult) {

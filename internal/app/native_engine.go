@@ -117,7 +117,7 @@ func (e *NativeEngine) RequestVerificationCode(ctx context.Context, input Engine
 }
 
 func (e *NativeEngine) requestVerificationCodeWithState(ctx context.Context, input EngineRegistrationInput, state nativeState) (EngineCodeResult, nativeState) {
-	params, rawKeys := e.codeParams(input.Phone, state)
+	params, rawKeys := e.codeParams(input.Phone, input.DeliveryMethod, state)
 	plain := renderNativePlain(params, rawKeys)
 	client, err := e.httpForProxy()
 	if err != nil {
@@ -150,7 +150,7 @@ func (e *NativeEngine) SubmitVerificationCode(ctx context.Context, input EngineS
 	if err != nil {
 		return EngineRegisterResult{Status: waappv1.RegistrationStatus_REGISTRATION_STATUS_REJECTED, Err: err}
 	}
-	params, rawKeys := e.registerParams(input.Phone, input.Code, state)
+	params, rawKeys := e.registerParams(input.Phone, input.DeliveryMethod, input.Code, state)
 	plain := renderNativePlain(params, rawKeys)
 	client, err := e.httpForProxy()
 	if err != nil {
@@ -562,11 +562,12 @@ func printableSegments(raw []byte) []string {
 	return segments
 }
 
-func (e *NativeEngine) codeParams(phone *waappv1.PhoneTarget, state nativeState) (map[string]string, map[string]struct{}) {
+func (e *NativeEngine) codeParams(phone *waappv1.PhoneTarget, method waappv1.VerificationDeliveryMethod, state nativeState) (map[string]string, map[string]struct{}) {
+	methodName := registrationMethodName(method, "sms")
 	params := map[string]string{
 		"cc":                phoneCC(phone),
 		"in":                phoneNational(phone),
-		"method":            "sms",
+		"method":            methodName,
 		"lg":                "en",
 		"lc":                "US",
 		"fdid":              state.Profile.FDID,
@@ -586,13 +587,7 @@ func (e *NativeEngine) codeParams(phone *waappv1.PhoneTarget, state nativeState)
 		params["token"] = token
 	}
 	raw := map[string]struct{}{"id": {}, "backup_token": {}}
-	for key, value := range state.Profile.AdditionalMapFields {
-		if omitEmptyNativeOperatorField(key, value) {
-			continue
-		}
-		params[key] = pctBytes([]byte(value))
-		raw[key] = struct{}{}
-	}
+	applyNativeRawParamMap(params, raw, codeDeviceMap(methodName, state), true)
 	return params, raw
 }
 
@@ -608,11 +603,12 @@ func omitEmptyNativeOperatorField(key string, value string) bool {
 	}
 }
 
-func (e *NativeEngine) registerParams(phone *waappv1.PhoneTarget, code string, state nativeState) (map[string]string, map[string]struct{}) {
+func (e *NativeEngine) registerParams(phone *waappv1.PhoneTarget, method waappv1.VerificationDeliveryMethod, code string, state nativeState) (map[string]string, map[string]struct{}) {
+	methodName := firstNonEmpty(state.LastCodeParams["method"], registrationMethodName(method, "sms"))
 	params := map[string]string{
 		"cc":                phoneCC(phone),
 		"in":                phoneNational(phone),
-		"method":            "sms",
+		"method":            methodName,
 		"lg":                firstNonEmpty(state.LastCodeParams["lg"], "en"),
 		"lc":                firstNonEmpty(state.LastCodeParams["lc"], "US"),
 		"fdid":              firstNonEmpty(state.LastCodeParams["fdid"], state.Profile.FDID),
@@ -634,6 +630,7 @@ func (e *NativeEngine) registerParams(phone *waappv1.PhoneTarget, code string, s
 	}
 	applyRegisterCodeResultParams(params, state)
 	raw := map[string]struct{}{"id": {}, "backup_token": {}}
+	applyNativeRawParamMap(params, raw, registerDeviceMap(methodName, state, params["token"]), true)
 	return params, raw
 }
 

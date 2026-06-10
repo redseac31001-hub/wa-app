@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	waappv1 "github.com/byte-v-forge/wa-app/gen/go/byte/v/forge/waapp/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 type waKnownContactAlias struct {
@@ -26,9 +27,9 @@ func normalizedWAContactForStorage(contact *waappv1.WAContact) *waappv1.WAContac
 	if contact == nil {
 		return nil
 	}
-	clone := *contact
-	normalizeWAContactNames(&clone)
-	return &clone
+	clone := proto.Clone(contact).(*waappv1.WAContact)
+	normalizeWAContactNames(clone)
+	return clone
 }
 
 func normalizeWAContactNames(contact *waappv1.WAContact) {

@@ -183,53 +183,57 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 	if phoneCC(phone) == "" && phoneNational(phone) == "" {
 		return nil, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_VALIDATION_FAILED, "phone is required", false)
 	}
-	method := firstNonEmpty(req.GetMethod(), "sms")
+	method := registrationMethodFromName(req.GetMethod())
+	methodName := registrationMethodName(method, "sms")
 	language := firstNonEmpty(req.GetLanguage(), "en")
 	locale := firstNonEmpty(req.GetLocale(), "US")
 	switch req.GetKind() {
 	case waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_EXIST:
 		if hasState {
-			base, raw := e.codeParams(phone, state)
-			delete(base, "method")
+			base, raw := e.existParams(phone, state)
 			params.merge(base, raw)
-			params.remove("method")
 		} else {
 			profile := buildNativePhoneProfile(phone)
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
 			params.set("lg", language, false)
 			params.set("lc", locale, false)
-			applyNativeProfileParams(&params, rawKeys, profile, true, true)
+			applyNativeProfileParams(&params, rawKeys, profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, existDeviceMap(nativeState{Profile: profile}), true)
 		}
 	case waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_REGISTER:
 		if strings.TrimSpace(req.GetVerificationCode()) == "" {
 			return nil, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_VALIDATION_FAILED, "verification_code is required", false)
 		}
 		if hasState {
-			base, raw := e.registerParams(phone, req.GetVerificationCode(), state)
-			params.merge(base, raw)
-		} else {
-			params.set("cc", phoneCC(phone), false)
-			params.set("in", phoneNational(phone), false)
-			params.set("method", method, false)
-			params.set("code", req.GetVerificationCode(), false)
-		}
-	default:
-		if hasState {
-			base, raw := e.codeParams(phone, state)
+			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state)
 			params.merge(base, raw)
 		} else {
 			profile := buildNativePhoneProfile(phone)
 			params.set("cc", phoneCC(phone), false)
 			params.set("in", phoneNational(phone), false)
-			params.set("method", method, false)
+			params.set("method", methodName, false)
+			params.set("code", req.GetVerificationCode(), false)
+			applyNativeProfileParams(&params, rawKeys, profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, registerDeviceMap(methodName, nativeState{Profile: profile}, ""), true)
+		}
+	default:
+		if hasState {
+			base, raw := e.codeParams(phone, method, state)
+			params.merge(base, raw)
+		} else {
+			profile := buildNativePhoneProfile(phone)
+			params.set("cc", phoneCC(phone), false)
+			params.set("in", phoneNational(phone), false)
+			params.set("method", methodName, false)
 			params.set("lg", language, false)
 			params.set("lc", locale, false)
-			applyNativeProfileParams(&params, rawKeys, profile, true, true)
+			applyNativeProfileParams(&params, rawKeys, profile, false, true)
+			applyNativeRawMapParams(&params, rawKeys, codeDeviceMap(methodName, nativeState{Profile: profile}), true)
 		}
 	}
 	if req.GetKind() != waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_EXIST {
-		params.set("method", firstNonEmpty(params.get("method"), method), false)
+		params.set("method", firstNonEmpty(params.get("method"), methodName), false)
 	}
 	applyWamsysToParams(&params, rawKeys, req.GetWamsysCapture(), req.GetApplyWamsysScalars(), req.GetIncludeWamsysMap(), req.GetIncludeWamsysIdBackup())
 	for _, item := range req.GetExtraParams() {
@@ -391,6 +395,22 @@ func applyNativeProfileParams(params *orderedParams, rawKeys map[string]struct{}
 			params.set(key, pctBytes([]byte(profile.AdditionalMapFields[key])), true)
 			rawKeys[key] = struct{}{}
 		}
+	}
+}
+
+func applyNativeRawMapParams(params *orderedParams, rawKeys map[string]struct{}, values map[string]string, omitEmptyOperator bool) {
+	for key, value := range values {
+		if omitEmptyOperator && omitEmptyNativeOperatorField(key, value) {
+			continue
+		}
+		if key == "token" {
+			if value != "" {
+				params.set(key, value, false)
+			}
+			continue
+		}
+		params.set(key, pctBytes([]byte(value)), true)
+		rawKeys[key] = struct{}{}
 	}
 }
 

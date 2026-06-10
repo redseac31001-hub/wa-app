@@ -107,6 +107,7 @@ type EngineRegistrationInput struct {
 	ClientProfileID   string
 	ProtocolProfileID string
 	Phone             *waappv1.PhoneTarget
+	DeliveryMethod    waappv1.VerificationDeliveryMethod
 }
 
 type EngineSubmitInput struct {
