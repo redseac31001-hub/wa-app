@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, Outlet, useMatches, useNavigate, useOutletContext, useParams } from 'react-router';
@@ -15,7 +15,7 @@ import { useWaLongConnectionIndex } from './wa-long-connection-badge';
 import { waChatsPath } from './wa-route-paths';
 import { Button, LoadingText, ToastMessage, useToastMessage } from './ui';
 
-type WaRouteContext = { accounts: WAAccount[]; accountsLoading: boolean; connections: Map<string, LongConnectionState>; deleting: boolean; refreshAccounts: () => Promise<void>; deleteAccount: (account: WAAccount) => void; done: (message: string) => void; error: (message: string) => void };
+type WaRouteContext = { accounts: WAAccount[]; accountsLoading: boolean; connections: Map<string, LongConnectionState>; deleting: boolean; refreshAccounts: () => Promise<void>; refreshAccountAvatars: () => void; deleteAccount: (account: WAAccount) => void; done: (message: string) => void; error: (message: string) => void };
 
 const emptyAccounts: WAAccount[] = [];
 
@@ -23,6 +23,7 @@ export function WaLayout() {
   const toast = useToastMessage();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [accountAvatarVersion, setAccountAvatarVersion] = useState(() => String(Date.now()));
   const accountsQuery = useQuery({ queryKey: waKeys.accounts(), queryFn: () => getWaAccounts(), refetchInterval: 10000 });
   const connections = useWaLongConnectionIndex();
   const accounts = accountsQuery.data?.accounts || emptyAccounts;
@@ -31,10 +32,11 @@ export function WaLayout() {
   async function refreshAccounts() {
     await queryClient.invalidateQueries({ queryKey: waKeys.accounts() });
   }
-  const context: WaRouteContext = { accounts, accountsLoading: accountsQuery.isLoading, connections: connections.byAccount, deleting: deletion.isPending, refreshAccounts, deleteAccount: deletion.mutate, done: toast.showOK, error: toast.showError };
+  const refreshAccountAvatars = () => setAccountAvatarVersion(String(Date.now()));
+  const context: WaRouteContext = { accounts, accountsLoading: accountsQuery.isLoading, connections: connections.byAccount, deleting: deletion.isPending, refreshAccounts, refreshAccountAvatars, deleteAccount: deletion.mutate, done: toast.showOK, error: toast.showError };
   return (
     <div className="grid h-dvh grid-cols-[68px_minmax(0,1fr)] overflow-hidden bg-background text-foreground">
-      <WaAccountRail accounts={accounts} selectedID={selectedID} connections={connections.byAccount} loading={accountsQuery.isLoading} connectionsLoading={connections.loading} />
+      <WaAccountRail accounts={accounts} selectedID={selectedID} avatarVersion={accountAvatarVersion} connections={connections.byAccount} loading={accountsQuery.isLoading} connectionsLoading={connections.loading} />
       <Outlet context={context} />
       <ToastMessage toast={toast.toast} />
     </div>
@@ -56,12 +58,12 @@ export function WaCreateAccountRoute() {
 
 export function WaAccountInfoRoute() {
   const account = useRouteAccount();
-  const { accounts, accountsLoading, deleting, deleteAccount, done, error } = useWaContext();
+  const { accounts, accountsLoading, deleting, deleteAccount, done, error, refreshAccountAvatars } = useWaContext();
   const accountID = waAccountID(account);
   const profilesQuery = useQuery({ queryKey: waKeys.profiles(accountID), queryFn: () => getWaClientProfiles(accountID), enabled: Boolean(accountID), refetchInterval: 30000 });
   if (accountsLoading) return <PageCenter><LoadingText>加载账号...</LoadingText></PageCenter>;
   if (!account) return <AccountFallback accounts={accounts} />;
-  return <WaAccountInfoPage account={account} profiles={profilesQuery.data?.client_profiles || []} profilesLoading={profilesQuery.isLoading} busy={deleting} onDelete={deleteAccount} onDone={done} onError={error} />;
+  return <WaAccountInfoPage account={account} profiles={profilesQuery.data?.client_profiles || []} profilesLoading={profilesQuery.isLoading} busy={deleting} onDelete={deleteAccount} onDone={done} onError={error} onAvatarChanged={refreshAccountAvatars} />;
 }
 
 export function WaInboxRoute() {

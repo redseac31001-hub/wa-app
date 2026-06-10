@@ -6,7 +6,7 @@ import { WaAccountDetail } from './wa-account-detail';
 import { WhatsAppIcon } from './wa-brand-icon';
 import { waChatsPath } from './wa-route-paths';
 
-export function WaAccountInfoPage({ account, profiles, profilesLoading, busy, onDelete, onDone, onError }: { account: WAAccount; profiles: ClientProfile[]; profilesLoading: boolean; busy: boolean; onDelete: (account: WAAccount) => void; onDone: (message: string) => void; onError: (message: string) => void }) {
+export function WaAccountInfoPage({ account, profiles, profilesLoading, busy, onDelete, onDone, onError, onAvatarChanged }: { account: WAAccount; profiles: ClientProfile[]; profilesLoading: boolean; busy: boolean; onDelete: (account: WAAccount) => void; onDone: (message: string) => void; onError: (message: string) => void; onAvatarChanged: () => void }) {
   return (
     <section className="grid h-dvh min-h-0 grid-rows-[auto_1fr] bg-background">
       <header className="flex h-16 items-center justify-between border-b border-border bg-card px-5">
@@ -18,7 +18,7 @@ export function WaAccountInfoPage({ account, profiles, profilesLoading, busy, on
       </header>
       <main className="min-h-0 overflow-y-auto p-6">
         <div className="mx-auto max-w-3xl rounded-3xl border border-border bg-card p-5 shadow-sm">
-          <WaAccountDetail account={account} profiles={profiles} profilesLoading={profilesLoading} busy={busy} onDelete={onDelete} onDone={onDone} onError={onError} />
+          <WaAccountDetail account={account} profiles={profiles} profilesLoading={profilesLoading} busy={busy} onDelete={onDelete} onDone={onDone} onError={onError} onAvatarChanged={onAvatarChanged} />
         </div>
       </main>
     </section>

@@ -13,9 +13,10 @@ type Props = {
   account: WAAccount;
   onDone: (message: string) => void;
   onError: (message: string) => void;
+  onAvatarChanged: () => void;
 };
 
-export function WaAccountProfileSettings({ account, onDone, onError }: Props) {
+export function WaAccountProfileSettings({ account, onDone, onError, onAvatarChanged }: Props) {
   const [picture, setPicture] = useState<File | null>(null);
   const [activePicture, setActivePicture] = useState('');
   const [avatarVersion, setAvatarVersion] = useState('');
@@ -38,6 +39,7 @@ export function WaAccountProfileSettings({ account, onDone, onError }: Props) {
       setAvatarVersion(String(Date.now()));
       setRemoteFailed(false);
       resetPictureSelection();
+      onAvatarChanged();
       onDone(response.profile_picture_id ? '头像已提交' : '头像请求已提交');
     },
     onError: (error) => { resetPictureSelection(); handleError(error); },
