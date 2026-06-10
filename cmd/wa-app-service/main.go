@@ -49,6 +49,10 @@ func main() {
 	}
 	service := app.NewServer(store, runtime, engine, clock, ids)
 	service.SetStaticProxyURLs(cfg.CommonProxy, cfg.NumberProbeProxy, cfg.RegistrationProxy)
+	authConfig, err := newDashboardAuthConfig(cfg.DashboardAuthUser, cfg.DashboardAuthPass)
+	if err != nil {
+		log.Fatalf("initialize wa-app dashboard auth: %v", err)
+	}
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
 		log.Fatalf("listen %s: %v", cfg.ListenAddr, err)
@@ -80,7 +84,7 @@ func main() {
 		return nil
 	})
 	group.Go(func() error {
-		return runDashboardHTTP(groupCtx, cfg.DashboardHTTPAddr, cfg.DashboardStaticDir, service, newWAActionHandler(service))
+		return runDashboardHTTP(groupCtx, cfg.DashboardHTTPAddr, cfg.DashboardStaticDir, service, newWAActionHandler(service), authConfig)
 	})
 	group.Go(func() error {
 		return service.RunLongConnections(groupCtx)

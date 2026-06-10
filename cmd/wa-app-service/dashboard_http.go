@@ -32,7 +32,7 @@ type dashboardHTTP struct {
 	actionHandler http.Handler
 }
 
-func runDashboardHTTP(ctx context.Context, listenAddr, staticDir string, service *app.Server, actionHandler http.Handler) error {
+func runDashboardHTTP(ctx context.Context, listenAddr, staticDir string, service *app.Server, actionHandler http.Handler, auth dashboardAuthConfig) error {
 	if strings.TrimSpace(listenAddr) == "" {
 		return nil
 	}
@@ -68,7 +68,7 @@ func runDashboardHTTP(ctx context.Context, listenAddr, staticDir string, service
 	mux.HandleFunc("/mf/wa/", http.NotFound)
 	mux.HandleFunc("/healthz", server.handleHealth)
 	mux.Handle("/", standaloneDashboard(server.staticDir))
-	httpServer := &http.Server{Addr: listenAddr, Handler: withCORS(mux), ReadHeaderTimeout: 5 * time.Second}
+	httpServer := &http.Server{Addr: listenAddr, Handler: withCORS(withOptionalDashboardAuth(mux, auth)), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -826,7 +826,7 @@ func methodNotAllowed(w http.ResponseWriter, allowed string) {
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

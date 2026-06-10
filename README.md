@@ -51,6 +51,9 @@ docker compose up -d
 - `latest`：快速验证（取决于远端 latest 标签）
 - `sha-<短hash>` 或固定版本号：生产更推荐固定版本，避免漂移
 
+鉴权配置：
+- `WA_APP_AUTH_USERNAME` / `WA_APP_AUTH_PASSWORD`：同时配置后启用 dashboard HTTP Basic Auth；两者都为空则关闭；只配置一个会拒绝启动。`/healthz` 保持免鉴权用于健康检查。
+
 代理配置：
 - `WA_COMMON_PROXY`：默认 WA 出站代理。
 - `WA_NUMBER_PROBE_PROXY`：号码/SMS 探测代理；为空时使用 `WA_COMMON_PROXY`。
