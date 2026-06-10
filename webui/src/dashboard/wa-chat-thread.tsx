@@ -3,7 +3,7 @@ import { Copy, Loader2, Trash2 } from 'lucide-react';
 import { WhatsAppIcon } from './wa-brand-icon';
 import { toAssistantMessage, type WaChatEvent, type WaChatMeta, type WaContact } from './wa-chat-model';
 import { WaMessageContent } from './wa-message-content';
-import { Badge } from './ui';
+import { Badge, Button } from './ui';
 
 export function WaChatThread({ contact, events, loading, error, onDeleteMessage }: { contact?: WaContact; events: WaChatEvent[]; loading: boolean; error?: string; onDeleteMessage: (messageID: string) => void }) {
   const runtime = useExternalStoreRuntime<WaChatEvent>({ messages: events, convertMessage: toAssistantMessage, isDisabled: true, isLoading: loading, onNew: noopNewMessage });
@@ -69,11 +69,11 @@ function MessageTime() {
 }
 
 function CopyButton({ text }: { text: string }) {
-  return <button className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground" type="button" title="复制" aria-label="复制" onClick={() => void navigator.clipboard?.writeText(text)}><Copy size={14} /></button>;
+  return <Button className="rounded-full text-muted-foreground hover:text-foreground" variant="ghost" size="icon-sm" type="button" title="复制" aria-label="复制" onClick={() => void navigator.clipboard?.writeText(text)}><Copy size={14} /></Button>;
 }
 
 function DeleteButton({ messageID, onDeleteMessage }: { messageID: string; onDeleteMessage: (messageID: string) => void }) {
-  return <button className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive" type="button" title="删除" aria-label="删除" onClick={() => onDeleteMessage(messageID)}><Trash2 size={14} /></button>;
+  return <Button className="rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" variant="ghost" size="icon-sm" type="button" title="删除" aria-label="删除" onClick={() => onDeleteMessage(messageID)}><Trash2 size={14} /></Button>;
 }
 
 function EmptyConversation({ title }: { title: string }) {

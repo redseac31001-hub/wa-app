@@ -7,7 +7,7 @@ import type { DeleteWAAccountResponse, ListClientProfilesResponse, ListWAAccount
 export const ACCOUNT_PAGE_SIZE = 100;
 
 export type WaPhoneInput = { region: string; phone: string; e164_number: string; country_calling_code: string; country_iso2: string };
-export type WaWorkflowResponse = { success?: boolean; passed?: boolean; request_failed?: boolean; status?: string; error_message?: string; wa_account_id?: string; client_profile_id?: string; protocol_profile_id?: string; verification_request_id?: string; registration_phase?: string; phone_status?: Record<string, unknown>; account_probe?: Record<string, unknown>; sms_probe?: Record<string, unknown>; phone?: Record<string, unknown>; proxy?: Record<string, unknown>; registration?: Record<string, unknown>; login_state?: Record<string, unknown>; check?: Record<string, unknown> };
+export type WaWorkflowResponse = { success?: boolean; passed?: boolean; request_failed?: boolean; status?: string; error_message?: string; reject_reason?: string; wa_account_id?: string; client_profile_id?: string; protocol_profile_id?: string; verification_request_id?: string; registration_phase?: string; phone_status?: Record<string, unknown>; account_probe?: Record<string, unknown>; sms_probe?: Record<string, unknown>; phone?: Record<string, unknown>; proxy?: Record<string, unknown>; registration?: Record<string, unknown>; login_state?: Record<string, unknown>; check?: Record<string, unknown> };
 export type WaConnectionState = LongConnectionState;
 export type WaConnectionFilters = { login_state_id?: string; wa_account_id?: string; client_profile_id?: string; registered_identity_id?: string };
 export type WaAccountProjection = WAAccount;

@@ -7,6 +7,7 @@ import { waAccountID, waAccountProfilePictureURL, waAccountTitle } from './wa-ap
 import { WhatsAppIcon } from './wa-brand-icon';
 import { WaConnectionDot } from './wa-connection-dot';
 import { waAccountPath, waChatsPath } from './wa-route-paths';
+import { Button } from './ui';
 
 export function WaAccountRail({ accounts, selectedID, avatarVersion, connections, loading, connectionsLoading }: { accounts: WAAccount[]; selectedID: string; avatarVersion: string; connections: Map<string, LongConnectionState>; loading: boolean; connectionsLoading: boolean }) {
   return (
@@ -52,5 +53,5 @@ function RailLink({ children, title, to }: { children: ReactNode; title: string;
 }
 
 function RailButton({ children, title, disabled }: { children: ReactNode; title: string; disabled?: boolean }) {
-  return <button className="grid size-12 place-items-center rounded-2xl text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40" type="button" title={title} aria-label={title} disabled={disabled}>{children}</button>;
+  return <Button className="h-12 w-12 rounded-2xl text-muted-foreground hover:text-foreground disabled:opacity-40" variant="ghost" type="button" title={title} aria-label={title} disabled={disabled}>{children}</Button>;
 }

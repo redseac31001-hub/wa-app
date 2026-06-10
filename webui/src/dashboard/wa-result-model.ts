@@ -31,20 +31,20 @@ export function waProbeStatus(result?: WaWorkflowResponse | null): WaProbeStatus
   const smsProbe = record(result?.sms_probe);
   const proxy = record(result?.proxy);
   const registered = firstBool(phoneStatus.registered, accountProbe.registered) ?? registeredSignal(phoneStatus.account_raw_status, accountProbe.raw_status, accountProbe.status);
-  const blocked = firstBool(phoneStatus.blocked, accountProbe.blocked) ?? statusIn(['blocked'], phoneStatus.account_raw_status, accountProbe.raw_status, accountProbe.status, phoneStatus.account_raw_reason, accountProbe.raw_reason);
+  const blocked = firstBool(phoneStatus.blocked, accountProbe.blocked) ?? blockedSignal(result?.reject_reason, result?.error_message, result?.status, phoneStatus.account_raw_status, accountProbe.raw_status, accountProbe.status, phoneStatus.account_raw_reason, accountProbe.raw_reason);
   const accountReachable = firstBool(phoneStatus.account_reachable, accountProbe.success) ?? statusIn(['reachable', 'account_probe_status_reachable', 'ok', 'sent', 'valid', 'exists', 'incorrect'], phoneStatus.account_status, accountProbe.account_status, accountProbe.status, accountProbe.raw_status, accountProbe.raw_reason);
   const smsAvailable = firstBool(phoneStatus.sms_available, phoneStatus.can_receive_sms, smsProbe.sms_available, smsProbe.can_send_sms, smsProbe.can_receive_sms, accountProbe.can_send_sms) ?? statusIn(['available', 'sms_available', 'sent', 'waiting', 'ok'], phoneStatus.sms_status, smsProbe.sms_status, smsProbe.status);
   const smsWaitSeconds = firstNumber(phoneStatus.sms_wait_seconds, smsProbe.sms_wait_seconds, smsProbe.wait_seconds, smsProbe.retry_after_seconds, smsProbe.cooldown_seconds, smsProbe.remaining_seconds, accountProbe.sms_wait_seconds);
   const smsWaitUntil = firstText(phoneStatus.sms_wait_until, smsProbe.sms_wait_until, smsProbe.wait_until, smsProbe.retry_after_at, smsProbe.cooldown_until);
   const canRegister = firstBool(phoneStatus.can_register);
   const accountStatus = firstText(phoneStatus.account_status, accountProbe.account_status, accountProbe.status);
-  const accountFlow = firstText(phoneStatus.account_flow, accountProbe.account_flow) || deriveAccountFlow({ registered, blocked, smsAvailable, accountStatus, rawReason: firstText(phoneStatus.account_raw_reason, accountProbe.raw_reason) });
+  const accountFlow = firstText(phoneStatus.account_flow, accountProbe.account_flow) || deriveAccountFlow({ registered, blocked, smsAvailable, accountStatus, rawReason: firstText(result?.reject_reason, result?.error_message, phoneStatus.account_raw_reason, accountProbe.raw_reason) });
   const accountRawStatus = firstText(phoneStatus.account_raw_status, accountProbe.raw_status);
   const accountRawReason = firstText(phoneStatus.account_raw_reason, accountProbe.raw_reason, phoneStatus.account_error, accountProbe.error_message);
   const accountError = firstText(phoneStatus.account_error, accountProbe.error_message);
-  const rejectReason = firstText(phoneStatus.reject_reason, result?.error_message, result?.status);
+  const rejectReason = firstText(phoneStatus.reject_reason, result?.reject_reason, result?.error_message, result?.status);
   const explicitRequestFailed = firstBool(phoneStatus.request_failed, result?.request_failed);
-  const requestFailed = explicitRequestFailed ?? (accountFlow !== 'registered' && (accountRejected(accountStatus, accountRawReason, accountError) || requestFailure(rejectReason, result?.error_message, result?.status)));
+  const requestFailed = explicitRequestFailed ?? (result?.success === false || (accountFlow !== 'registered' && (accountRejected(accountStatus, accountRawReason, accountError) || requestFailure(rejectReason, result?.error_message, result?.status))));
   const methodStatuses = verificationMethodStatuses(phoneStatus.method_statuses, accountProbe.method_statuses);
   return {
     requestFailed, failureReason: rejectReason || accountRawReason || accountError,
@@ -59,8 +59,8 @@ export function waProbeStatus(result?: WaWorkflowResponse | null): WaProbeStatus
 export function outcomeMeta(status: WaProbeStatus, result?: WaWorkflowResponse | null, loading?: boolean): { label: string; variant: BadgeVariant } {
   if (loading) return { label: '执行中', variant: 'secondary' };
   if (!result) return { label: '等待', variant: 'outline' };
-  if (status.requestFailed) return { label: '探测失败', variant: 'destructive' };
   if (status.blocked === true) return { label: '已封禁', variant: 'destructive' };
+  if (status.requestFailed) return { label: '请求失败', variant: 'destructive' };
   if (status.accountFlow === 'invalid_number') return { label: '号码异常', variant: 'secondary' };
   if (status.accountFlow === 'rate_limited') return { label: '限流', variant: 'secondary' };
   if (status.registered === true || status.accountFlow === 'registered') return { label: '旧设备可用', variant: 'secondary' };
@@ -93,6 +93,10 @@ function accountFeedback(status: WaProbeStatus) {
   if (!raw) return '';
   if (normalized.includes('account_probe_status_rejected') || normalized.includes('invalid_skey') || normalized.includes('bad_token')) return extraValues(status.accountStatus, status.accountRawStatus, status.accountRawReason, status.accountError).join(' / ') || raw;
   return extraValues(status.accountStatus, status.accountRawStatus, status.accountRawReason, status.accountError).join(' / ');
+}
+function blockedSignal(...values: unknown[]) {
+  const normalized = values.map(firstText).join(' ').toLowerCase();
+  return normalized ? normalized.includes('blocked') : undefined;
 }
 function accountRejected(...values: string[]) {
   const normalized = compactJoin(values, ' ').toLowerCase();

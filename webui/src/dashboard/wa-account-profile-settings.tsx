@@ -71,13 +71,13 @@ export function WaAccountProfileSettings({ account, onDone, onError, onAvatarCha
   return (
     <section className="rounded-xl border border-border bg-card p-3">
       <div className="flex items-center gap-3">
-        <button className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-muted/60 transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70" type="button" disabled={pictureBusy} title="更换头像" aria-label="更换头像" onClick={() => { if (fileInput.current) fileInput.current.value = ''; fileInput.current?.click(); }}>
+        <Button className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted/60 p-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70" variant="ghost" type="button" disabled={pictureBusy} title="更换头像" aria-label="更换头像" onClick={() => { if (fileInput.current) fileInput.current.value = ''; fileInput.current?.click(); }}>
           {picture ? <AvatarPreview editor={editor} image={picture} onReady={(dataURL) => pictureMutation.mutate({ dataURL, file: picture })} onError={(message) => { resetPictureSelection(); onError(message); }} /> : <StoredAvatar src={activePicture || remoteAvatar} onError={() => setRemoteFailed(true)} />}
           {pictureBusy ? <span className="absolute inset-0 grid place-items-center bg-background/70"><Loader2 className="size-4 animate-spin" /></span> : null}
-        </button>
+        </Button>
         <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={(event) => submitName(event, () => nameMutation.mutate())}>
           <Input className="min-w-0 flex-1" value={displayName} maxLength={25} placeholder="账号名称" aria-label="账号名称" disabled={nameBusy} onChange={(event) => setDisplayName(event.target.value)} />
-          <Button className="size-10 px-0" type="submit" disabled={nameBusy || !name || [...name].length > 25} title="保存账号名称" aria-label="保存账号名称">
+          <Button className="h-10 w-10 px-0" type="submit" disabled={nameBusy || !name || [...name].length > 25} title="保存账号名称" aria-label="保存账号名称">
             {nameBusy ? <Loader2 className="size-4 animate-spin" /> : <Check size={16} />}
           </Button>
         </form>

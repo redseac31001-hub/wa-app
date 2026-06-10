@@ -7,7 +7,7 @@ import type { WaContact } from './wa-chat-model';
 import { formatChatTime } from './wa-chat-model';
 import { WhatsAppIcon } from './wa-brand-icon';
 import { waContactPath } from './wa-route-paths';
-import { Badge } from './ui';
+import { Badge, Button, Input } from './ui';
 
 export function WaContactList({ accountID, contacts, selectedID, loading, error, deletingID, onOpenContact, onDeleteContact }: { accountID: string; contacts: WaContact[]; selectedID: string; loading: boolean; error?: string; deletingID?: string; onOpenContact: (contactID: string) => void; onDeleteContact: (contactID: string) => void }) {
   const [query, setQuery] = useState('');
@@ -20,7 +20,10 @@ export function WaContactList({ accountID, contacts, selectedID, loading, error,
         {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </header>
       <div className="px-3 pb-3">
-        <label className="flex h-10 items-center gap-2 rounded-xl bg-muted/50 px-3 text-sm text-muted-foreground"><Search size={15} /><input className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索联系人" /></label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="h-10 rounded-xl bg-muted/50 pl-8" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索联系人" aria-label="搜索联系人" />
+        </div>
       </div>
       <div className="min-h-0 overflow-y-auto p-2">
         {error && <p className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{error}</p>}
@@ -71,7 +74,7 @@ function ContactRow({ accountID, contact, selected, deleting, onOpenContact, onD
           {unread && <Badge variant="default">{contact.unreadCount}</Badge>}
         </span>
       </NavLink>
-      {deleteVisible && <button className="mr-2 grid size-8 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50" type="button" title="删除联系人" aria-label="删除联系人" disabled={deleting} onClick={() => onDeleteContact(contact.id)}>{deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 size={14} />}</button>}
+      {deleteVisible && <Button className="mr-2 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive" variant="ghost" size="icon" type="button" title="删除联系人" aria-label="删除联系人" disabled={deleting} onClick={() => onDeleteContact(contact.id)}>{deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 size={14} />}</Button>}
     </div>
   );
 }
@@ -87,7 +90,7 @@ function ContactAvatar({ contact }: { contact: WaContact }) {
 function ContactKindBadge({ kind }: { kind: WAContactKind }) {
   const label = kindLabel(kind);
   if (!label) return null;
-  return <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{label}</span>;
+  return <Badge variant="secondary">{label}</Badge>;
 }
 
 function filterContacts(contacts: WaContact[], query: string) {
