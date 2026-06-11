@@ -58,7 +58,7 @@ function channelState(method: RegistrationChannelMethodOption, status: WaProbeSt
     return { ready: false, cooldown, label: countdownLabel(cooldown), badge: 'secondary' as const, Icon: Clock3, title: `冷却中，剩余 ${countdownLabel(cooldown)}` };
   }
   if (!method.directRequest) {
-    return { ready: false, cooldown: 0, label: '设备侧', badge: 'outline' as const, Icon: PhoneMissed, title: method.disabledReason || method.description };
+    return { ready: false, cooldown: 0, label: '不支持', badge: 'outline' as const, Icon: PhoneMissed, title: method.disabledReason || method.description };
   }
   if (registrationMethodAvailable(status, method.value, elapsedSeconds)) {
     return { ready: true, cooldown: 0, label: '可用', badge: 'default' as const, Icon: CheckCircle2, title: method.description };

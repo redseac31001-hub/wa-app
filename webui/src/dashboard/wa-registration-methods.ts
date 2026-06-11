@@ -24,7 +24,7 @@ export const selectableRegistrationMethods: SelectableRegistrationMethodOption[]
   methodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_SEND_SMS, 'send_sms', '从本机发送短信到 WhatsApp'),
 ];
 export const visibleRegistrationChannelMethods: RegistrationChannelMethodOption[] = [
-  channelMethodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_FLASH, 'flash', 'Flash Call / 未接来电验证，需要 Android 设备侧监听', false, '需要设备侧未接来电流程'),
+  channelMethodOption(VerificationDeliveryMethod.VERIFICATION_DELIVERY_METHOD_FLASH, 'flash', '未接来电验证，当前服务不支持', false, '当前服务不支持未接来电验证'),
   ...selectableRegistrationMethods.map((method) => ({ ...method, directRequest: true })),
 ];
 

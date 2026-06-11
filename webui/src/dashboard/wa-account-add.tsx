@@ -150,7 +150,7 @@ export function WaAccountAdd({ disabled, onChanged, onDone, onError }: Props) {
           <Field>
             <FieldLabel>注册 / 登录通道</FieldLabel>
             <WaRegistrationChannelButtons status={channelStatus} elapsedSeconds={cooldownElapsedSeconds} disabled={busy || disabled || Boolean(pending) || channelsHardBlocked} onStart={(method) => void startRegistration(method)} />
-            <FieldDescription>检测后按 APK 可见 fallback 展示；设备侧通道仅提示，冷却通道显示倒计时。</FieldDescription>
+            <FieldDescription>检测后按 APK 可见 fallback 展示；不支持的通道仅提示，冷却通道显示倒计时。</FieldDescription>
           </Field>
         )}
         {showHelp && <Alert variant={blocked ? 'destructive' : 'default'}>
