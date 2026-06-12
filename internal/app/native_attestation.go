@@ -132,7 +132,7 @@ func newNativeSoftwareAttestationCertificateChain(privateKey *ecdsa.PrivateKey, 
 	if err != nil {
 		return nil, err
 	}
-	return append(append([]byte{}, rootDER...), leafDER...), nil
+	return append(append([]byte{}, leafDER...), rootDER...), nil
 }
 
 func nativeAttestationSerial() (*big.Int, error) {
@@ -176,7 +176,18 @@ func nativeSoftwareAndroidKeyAttestationExtension(challenge []byte) ([]byte, err
 }
 
 func (a nativeSoftwareAttestation) ready() bool {
-	return a.PrivateKeyPKCS8 != "" && a.CertificateChainDER != ""
+	if a.PrivateKeyPKCS8 == "" || a.CertificateChainDER == "" {
+		return false
+	}
+	certificateDER, err := decodeB64Any(a.CertificateChainDER)
+	if err != nil {
+		return false
+	}
+	certificates, err := x509.ParseCertificates(certificateDER)
+	if err != nil || len(certificates) == 0 {
+		return false
+	}
+	return !certificates[0].IsCA
 }
 
 func (a nativeSoftwareAttestation) sign(body []byte) (string, string, error) {

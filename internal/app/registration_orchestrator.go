@@ -21,6 +21,7 @@ func (s *Server) StartRegistration(ctx context.Context, payload map[string]any) 
 	basePayload["purpose"] = firstNonEmpty(textField(basePayload, "purpose"), "WA_REGISTRATION")
 	basePayload["proxy_session_mode"] = firstNonEmpty(textField(basePayload, "proxy_session_mode"), "STICKY")
 	method := registrationMethodFromPayload(basePayload)
+	authCodeContext := authCodeContextFromPayload(basePayload)
 	if reason := directRegistrationMethodUnsupportedReason(method); reason != "" {
 		return rejectedRegistrationResult(basePayload, registrationMethodUnsupportedMap(method, reason)), nil
 	}
@@ -49,12 +50,12 @@ func (s *Server) StartRegistration(ctx context.Context, payload map[string]any) 
 		}
 	}()
 	phone := normalizePhone(phoneFromAction(basePayload))
-	probeResult := runner.probeAccountWithState(ctx, EngineRegistrationInput{AppVersion: defaultWAAppVersion, Phone: phone, DeliveryMethod: method}, state)
+	probeResult := runner.probeAccountWithState(ctx, EngineRegistrationInput{AppVersion: defaultWAAppVersion, Phone: phone, DeliveryMethod: method, AuthCodeContext: authCodeContext}, state)
 	logRegistrationProbeResult(basePayload, phone, route, method, probeResult)
 	if !registrationProbeAllowsMethod(probeResult, method) {
 		return rejectedRegistrationResult(basePayload, registrationProbeFailureMap(probeResult, route, managedRoute)), nil
 	}
-	codeResult, updatedState := runner.requestVerificationCodeWithState(ctx, EngineRegistrationInput{AppVersion: defaultWAAppVersion, Phone: phone, DeliveryMethod: method}, state)
+	codeResult, updatedState := runner.requestVerificationCodeWithState(ctx, EngineRegistrationInput{AppVersion: defaultWAAppVersion, Phone: phone, DeliveryMethod: method, AuthCodeContext: authCodeContext}, state)
 	logRegistrationCodeResult(basePayload, phone, route, method, codeResult)
 	if !verificationCodeRequestAccepted(codeResult) {
 		return rejectedRegistrationResult(basePayload, registrationRequestFailureMap(codeResult, method, route, managedRoute)), nil
@@ -156,6 +157,14 @@ func logRegistrationProbeResult(payload map[string]any, phone *waappv1.PhoneTarg
 		result.SMSWaitSeconds,
 		len(result.MethodStatuses),
 		probeLogValue(protoErr.GetMessage()),
+	)
+}
+
+func authCodeContextFromPayload(payload map[string]any) string {
+	return firstNonEmpty(
+		textField(payload, "auth_code_context"),
+		textField(payload, "authCodeContext"),
+		textField(payload, "code_entrypoint"),
 	)
 }
 

@@ -110,6 +110,7 @@ type EngineRegistrationInput struct {
 	AppVersion        string
 	Phone             *waappv1.PhoneTarget
 	DeliveryMethod    waappv1.VerificationDeliveryMethod
+	AuthCodeContext   string
 }
 
 type EngineSubmitInput struct {

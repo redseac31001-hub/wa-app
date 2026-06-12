@@ -212,7 +212,7 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 			return nil, NewError(waappv1.WaErrorCode_WA_ERROR_CODE_VALIDATION_FAILED, "verification_code is required", false)
 		}
 		if hasState {
-			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state)
+			base, raw := e.registerParams(phone, method, req.GetVerificationCode(), state, "")
 			params.merge(base, raw)
 		} else {
 			params.set("cc", phoneCC(phone), false)
@@ -224,7 +224,7 @@ func (e *NativeEngine) BuildRegistrationRequest(ctx context.Context, req *waappv
 		}
 	default:
 		if hasState {
-			base, raw := e.codeParams(phone, method, state)
+			base, raw := e.codeParams(phone, method, state, "")
 			params.merge(base, raw)
 		} else {
 			params.set("cc", phoneCC(phone), false)
