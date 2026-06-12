@@ -74,7 +74,7 @@ func (e *NativeEngine) codeRequestOrderedParams(ctx context.Context, phone *waap
 		params.set("advertising_id", advertisingID, false)
 	}
 	applyNativeE2EParams(&params, state)
-	applyNativeCodeRequestMapParams(&params, fields)
+	applyNativeCodeRequestMapParams(&params, fields, methodName)
 	capture, err := e.wamsysProvider().RegistrationMaterial(ctx, wamsysMaterialInput{Kind: waappv1.RegistrationRequestKind_REGISTRATION_REQUEST_KIND_CODE, Phone: phone, State: state})
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func applyNativeE2EParams(params *orderedParams, state nativeState) {
 	params.set("e_skey_sig", state.KeyBundle.SignedKeySig, false)
 }
 
-func applyNativeCodeRequestMapParams(params *orderedParams, fields map[string]string) {
+func applyNativeCodeRequestMapParams(params *orderedParams, fields map[string]string, method string) {
 	addOptionalRawParam(params, "mistyped", fields["mistyped"])
 	addRawParam(params, "reason", "")
 	addOptionalRawParam(params, "hasav", fields["hasav"])
@@ -107,7 +107,7 @@ func applyNativeCodeRequestMapParams(params *orderedParams, fields map[string]st
 	addOptionalRawParam(params, "sim_mcc", fields["sim_mcc"])
 	addOptionalRawParam(params, "sim_mnc", fields["sim_mnc"])
 	addRawParam(params, "education_screen_displayed", "false")
-	addRawParam(params, "prefer_sms_over_flash", firstNonEmpty(fields["prefer_sms_over_flash"], "false"))
+	addRawParam(params, "prefer_sms_over_flash", nativePreferSMSOverFlash(method, fields))
 	addOptionalRawParam(params, "network_radio_type", fields["network_radio_type"])
 	addOptionalRawParam(params, "simnum", fields["simnum"])
 	addOptionalRawParam(params, "hasinrc", fields["hasinrc"])
@@ -235,7 +235,7 @@ func codeDeviceMap(method string, state nativeState) map[string]string {
 		"reason":                     "",
 		"client_metrics":             nativeCodeClientMetrics(),
 		"education_screen_displayed": "false",
-		"prefer_sms_over_flash":      nativePreferSMSOverFlash(state),
+		"prefer_sms_over_flash":      nativePreferSMSOverFlash(method, fields),
 		"network_radio_type":         fields["network_radio_type"],
 		"sim_type":                   fields["sim_type"],
 		"airplane_mode_type":         fields["airplane_mode_type"],
@@ -259,8 +259,11 @@ func codeDeviceMap(method string, state nativeState) map[string]string {
 	return out
 }
 
-func nativePreferSMSOverFlash(state nativeState) string {
-	return firstNonEmpty(state.Profile.AdditionalMapFields["prefer_sms_over_flash"], "false")
+func nativePreferSMSOverFlash(method string, fields map[string]string) string {
+	if verificationMethodCode(method) == "sms" {
+		return "true"
+	}
+	return firstNonEmpty(fields["prefer_sms_over_flash"], "false")
 }
 
 func addNonEmptyNativeCodeField(out map[string]string, fields map[string]string, key string) {
@@ -307,9 +310,9 @@ func nativeDeviceMapFields(state nativeState) map[string]string {
 }
 
 const (
-	nativeDefaultFeo2QueryStatus   = "error_security_exception"
+	nativeDefaultFeo2QueryStatus   = "did_not_query"
 	legacyNativeFeo2QueryStatus    = "error_security_exception"
-	nativeDefaultDebugBridgeStatus = "1"
+	nativeDefaultDebugBridgeStatus = "0"
 )
 
 func nativeDefaultDeviceMapFields() map[string]string {
