@@ -46,8 +46,3 @@ APK 的冷却是按通道生效：真实可见 fallback 先从 `pref_reg_methods
 - `/v2/exist` 与 `/v2/code` 的默认设备画像改为 APK capture 同款无 SIM 运行态：`HUAWEI/TRT-AL00A Android 7.0`、`mcc/mnc/sim_mcc/sim_mnc=000`、`simnum=0`、`pid=29418`、`device_ram=3.53`。旧 transient/native profile 中已经生成的随机运营商、PID、RAM 不再覆盖运行态请求字段。
 - 号码检测返回 `sms_available=true` 但 WA 未返回显式 `fallback_methods` 时，检测结果会合成 SMS method status，避免前端只因 method_statuses 为空显示无可用通道。
 - `StartRegistration` 增加脱敏 `/v2/code` 结果日志，只输出 phone hash、route、method、status/reason、retry_after 和 method_status_count，不输出 token、OTP、ENC、key bundle 或请求正文。
-
-## registration/probe 出口一致性
-
-- 本次 `no_routes` 复现中，号码检测走 `STATIC_NUMBER_PROBE_PROXY` 且返回 SMS 可用；发码请求走 `COMMON_PROXY`，`/v2/code` 返回 `reason=no_routes`。这不是前端通道排序问题，也不像指纹字段缺失；优先判断为检测与发码出口不一致。
-- 静态代理选择现在按 `WA_REGISTRATION_PROXY -> WA_NUMBER_PROBE_PROXY -> WA_COMMON_PROXY`。未配置专用注册出口时，注册发码复用号码检测出口，保证“检测可发”的路由假设与实际 `/v2/code` 一致。
