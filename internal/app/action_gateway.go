@@ -692,6 +692,9 @@ func (g *actionGateway) staticRegistrationProxyRoute() (DynamicProxyRoute, bool)
 	if strings.TrimSpace(g.server.registrationProxyURL) != "" {
 		return staticProxyRoute("registration", g.server.registrationProxyURL, staticRegistrationProxyMode), true
 	}
+	if strings.TrimSpace(g.server.numberProbeProxyURL) != "" {
+		return staticProxyRoute("number-probe", g.server.numberProbeProxyURL, staticNumberProbeProxyMode), true
+	}
 	if strings.TrimSpace(g.server.commonProxyURL) != "" {
 		return staticProxyRoute("common", g.server.commonProxyURL, staticCommonProxyMode), true
 	}
