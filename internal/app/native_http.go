@@ -78,11 +78,11 @@ func configureNativeHTTPProxy(transport *http.Transport, parsed *url.URL) error 
 	return nil
 }
 
-func (c *nativeHTTPClient) postWASafe(ctx context.Context, endpoint string, plain string, userAgent string) (map[string]any, string, error) {
+func (c *nativeHTTPClient) postWASafe(ctx context.Context, endpoint string, plain string, userAgent string, attestation nativeSoftwareAttestation) (map[string]any, string, error) {
 	if endpoint == "" {
 		return nil, "", fmt.Errorf("endpoint is not configured")
 	}
-	envelope, err := buildWASafeEnvelope([]byte(plain), defaultWASafeServerPublicKeyHex)
+	envelope, err := buildWASafeEnvelope([]byte(plain), defaultWASafeServerPublicKeyHex, attestation)
 	if err != nil {
 		return nil, "", err
 	}

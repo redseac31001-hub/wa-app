@@ -38,6 +38,7 @@ type nativeState struct {
 	ChatRoutingInfo string                          `json:"chat_routing_info,omitempty"`
 	ChatConnection  nativeChatConnectionState       `json:"chat_connection,omitempty"`
 	ChatStatic      nativeCurveKeyPair              `json:"chat_static"`
+	Attestation     nativeSoftwareAttestation       `json:"attestation,omitempty"`
 	Signal          nativeSignalState               `json:"signal"`
 	AppState        nativeAppState                  `json:"app_state,omitempty"`
 	ContactHints    []waContactHint                 `json:"contact_hints,omitempty"`
@@ -231,6 +232,14 @@ func newNativeState(phone *waappv1.PhoneTarget) (nativeState, error) {
 	if err != nil {
 		return nativeState{}, err
 	}
+	chatStaticPublic, err := chatStatic.publicBytes()
+	if err != nil {
+		return nativeState{}, err
+	}
+	attestation, err := newNativeSoftwareAttestation(chatStaticPublic, time.Now().UTC())
+	if err != nil {
+		return nativeState{}, err
+	}
 	identity, err := newNativeCurveKeyPair()
 	if err != nil {
 		return nativeState{}, err
@@ -277,6 +286,7 @@ func newNativeState(phone *waappv1.PhoneTarget) (nativeState, error) {
 		AuthKey:       chatStatic.Public,
 		Profile:       profile,
 		ChatStatic:    chatStatic,
+		Attestation:   attestation,
 		Signal: nativeSignalState{
 			RegistrationID:   regID,
 			Identity:         identity,
